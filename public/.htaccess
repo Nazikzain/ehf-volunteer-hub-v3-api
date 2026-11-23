@@ -1,0 +1,31 @@
+# Apache / LiteSpeed (Hostinger shared hosting). public/ is the only web-served directory.
+
+# Explicitly allow this directory: the release root carries a deny-all .htaccess as a safety
+# net, and access rules from parent directories would otherwise apply here too.
+<IfModule mod_authz_core.c>
+    Require all granted
+</IfModule>
+<IfModule !mod_authz_core.c>
+    Order allow,deny
+    Allow from all
+</IfModule>
+
+Options -Indexes
+
+# Route every request to index.php.
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteRule ^ index.php [QSA,L]
+</IfModule>
+
+# Never serve dotfiles (for example a misplaced .env).
+<FilesMatch "^\.">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order allow,deny
+        Deny from all
+    </IfModule>
+</FilesMatch>
