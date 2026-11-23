@@ -1,0 +1,67 @@
+{
+    "name": "ehf/volunteer-hub-v3-api",
+    "description": "EHF Volunteer Hub V3 backend API (PHP, Slim 4). Implements Backend API Architecture Specification V1.3.1.",
+    "type": "project",
+    "license": "proprietary",
+    "require": {
+        "php": "^8.3",
+        "ext-json": "*",
+        "ext-mbstring": "*",
+        "ext-pdo": "*",
+        "monolog/monolog": "^3.7",
+        "php-di/php-di": "^7.0",
+        "slim/psr7": "^1.7",
+        "slim/slim": "^4.14",
+        "vlucas/phpdotenv": "^5.6"
+    },
+    "require-dev": {
+        "friendsofphp/php-cs-fixer": "^3.64",
+        "opis/json-schema": "^2.4",
+        "phpstan/phpstan": "^2.0",
+        "phpstan/phpstan-phpunit": "^2.0",
+        "phpstan/phpstan-strict-rules": "^2.0",
+        "phpunit/phpunit": "^11.4",
+        "symfony/yaml": "^7.1"
+    },
+    "suggest": {
+        "ext-pdo_mysql": "Required from Phase 3 (database access)."
+    },
+    "autoload": {
+        "psr-4": {
+            "Ehf\\Api\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Ehf\\Api\\Tests\\": "tests/"
+        }
+    },
+    "config": {
+        "platform": {
+            "php": "8.3.0"
+        },
+        "sort-packages": true,
+        "optimize-autoloader": true,
+        "allow-plugins": {}
+    },
+    "scripts": {
+        "serve": [
+            "Composer\\Config::disableProcessTimeout",
+            "php -S 127.0.0.1:8080 -t public public/index.php"
+        ],
+        "test": "phpunit --testsuite unit,http,contract",
+        "test:database": "phpunit --testsuite database",
+        "analyse": "phpstan analyse --memory-limit=1G --no-progress",
+        "cs:check": "php-cs-fixer fix --dry-run --diff",
+        "cs:fix": "php-cs-fixer fix",
+        "security": "@composer audit --locked",
+        "check": [
+            "@cs:check",
+            "@analyse",
+            "@test",
+            "@security"
+        ]
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}
