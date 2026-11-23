@@ -1,0 +1,10 @@
+# Placed at the release root as .htaccess by bin/build-release.sh.
+# If the hosting layout ever exposes the release root, deny everything:
+# only public/ may be served (configure the web root to point at public/).
+<IfModule mod_authz_core.c>
+    Require all denied
+</IfModule>
+<IfModule !mod_authz_core.c>
+    Order deny,allow
+    Deny from all
+</IfModule>

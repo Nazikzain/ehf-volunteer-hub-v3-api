@@ -1,0 +1,129 @@
+name: CI
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PHP_VERSION: '8.3'
+  PHP_EXTENSIONS: mbstring, json, pdo, pdo_mysql, intl, zip
+
+jobs:
+  quality:
+    name: Quality (style, static analysis, tests, security audit)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          extensions: ${{ env.PHP_EXTENSIONS }}
+          coverage: none
+          tools: composer:v2
+
+      - name: Validate composer.json and composer.lock
+        run: composer validate --strict
+
+      - name: Install dependencies
+        run: composer install --no-interaction --no-progress --prefer-dist
+
+      - name: Code style (PHP-CS-Fixer, dry run)
+        run: composer cs:check
+
+      - name: Static analysis (PHPStan, max level, strict rules)
+        run: composer analyse
+
+      - name: Tests (unit, HTTP, OpenAPI contract)
+        run: composer test
+
+      - name: Security audit (Composer)
+        run: composer audit --locked
+
+  database:
+    name: Database compatibility (${{ matrix.engine }})
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        # Decision A2: MySQL 8.0.16+ and MariaDB 10.6+ until the Hostinger engine is confirmed.
+        engine: ['mysql:8.0', 'mysql:8.4', 'mariadb:10.6', 'mariadb:11.4']
+    services:
+      db:
+        image: ${{ matrix.engine }}
+        env:
+          # Throwaway CI-only container: not a real credential.
+          MYSQL_ROOT_PASSWORD: ci-throwaway
+          MARIADB_ROOT_PASSWORD: ci-throwaway
+          MYSQL_DATABASE: ehf_ci
+          MARIADB_DATABASE: ehf_ci
+        ports:
+          - 3306:3306
+    env:
+      DB_TEST_HOST: 127.0.0.1
+      DB_TEST_PORT: '3306'
+      DB_TEST_NAME: ehf_ci
+      DB_TEST_USER: root
+      DB_TEST_PASSWORD: ci-throwaway
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          extensions: ${{ env.PHP_EXTENSIONS }}
+          coverage: none
+          tools: composer:v2
+
+      - name: Install dependencies
+        run: composer install --no-interaction --no-progress --prefer-dist
+
+      - name: Wait for the database
+        run: |
+          for i in $(seq 1 60); do
+            php -r 'try { new PDO("mysql:host=127.0.0.1;port=3306;dbname=ehf_ci", "root", "ci-throwaway"); exit(0); } catch (Throwable $e) { exit(1); }' && exit 0
+            sleep 2
+          done
+          echo "Database did not become ready" >&2
+          exit 1
+
+      - name: Database compatibility tests
+        run: composer test:database -- --fail-on-skipped
+
+  build:
+    name: Release package
+    needs: [quality, database]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          extensions: ${{ env.PHP_EXTENSIONS }}
+          coverage: none
+          tools: composer:v2
+
+      - name: Build release (production dependencies included)
+        run: bin/build-release.sh
+
+      - name: Upload release artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-${{ github.sha }}
+          path: |
+            dist/*.zip
+            dist/*.zip.sha256
+          if-no-files-found: error
+          retention-days: 30
