@@ -56,6 +56,9 @@ echo "==> Installing production dependencies"
 (cd "$STAGE" && composer install --no-dev --no-interaction --no-progress --no-scripts \
     --classmap-authoritative ${COMPOSER_INSTALL_FLAGS:-})
 find "$STAGE/vendor" -type d -name .git -prune -exec rm -rf {} +
+# Dependencies' own test suites and fixtures are never needed at runtime (dist archives usually
+# omit them; source installs do not).
+find "$STAGE/vendor" -mindepth 3 -maxdepth 3 -type d \( -name tests -o -name Tests -o -name test \) -prune -exec rm -rf {} +
 
 # 3. Verify the package.
 echo "==> Verifying the package"
@@ -70,6 +73,8 @@ done
 for forbidden in .env tests .git .github phpunit.xml.dist phpstan.neon.dist .php-cs-fixer.dist.php build dist var; do
     [[ ! -e "$STAGE/$forbidden" ]] || fail "$forbidden must not be shipped"
 done
+stray_env="$(find "$STAGE" -name '.env' -o -name '.env.*' ! -name '.env.example' | head -n 1)"
+[[ -z "$stray_env" ]] || fail "environment file must not be shipped: ${stray_env#"$STAGE"/}"
 while IFS= read -r -d '' file; do
     php -l "$file" >/dev/null || fail "syntax error in $file"
 done < <(find "$STAGE/public" "$STAGE/src" "$STAGE/config" -name '*.php' -print0)
