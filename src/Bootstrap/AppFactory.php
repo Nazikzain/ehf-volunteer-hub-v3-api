@@ -22,20 +22,24 @@ final class AppFactory
     private function __construct() {}
 
     /**
-     * @param LoggerInterface|null $logger overrides the file logger (tests)
+     * @param LoggerInterface|null $logger      overrides the file logger (tests)
+     * @param array<string, mixed>  $definitions extra container definitions (tests, e.g. a fixed clock)
      *
      * @return App<ContainerInterface>
      */
-    public static function create(Settings $settings, ?LoggerInterface $logger = null): App
+    public static function create(Settings $settings, ?LoggerInterface $logger = null, array $definitions = []): App
     {
         $configDir = \dirname(__DIR__, 2) . '/config';
 
-        /** @var \Closure(Settings, ?LoggerInterface): array<string, mixed> $definitions */
-        $definitions = require $configDir . '/container.php';
+        /** @var \Closure(Settings, ?LoggerInterface): array<string, mixed> $configDefinitions */
+        $configDefinitions = require $configDir . '/container.php';
 
         $builder = new ContainerBuilder();
         $builder->useAutowiring(true);
-        $builder->addDefinitions($definitions($settings, $logger));
+        $builder->addDefinitions($configDefinitions($settings, $logger));
+        if ($definitions !== []) {
+            $builder->addDefinitions($definitions);
+        }
         $container = $builder->build();
 
         SlimAppFactory::setContainer($container);

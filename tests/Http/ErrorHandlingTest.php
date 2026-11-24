@@ -8,6 +8,7 @@ use Ehf\Api\Http\Error\ApiException;
 use Ehf\Api\Http\Error\ErrorCode;
 use Ehf\Api\Http\Error\ErrorDetail;
 use Ehf\Api\Http\Response\JsonResponder;
+use Ehf\Api\Http\RouteAccess;
 use Ehf\Api\Infrastructure\Id\UlidGenerator;
 use Ehf\Api\Tests\Support\TestApp;
 use Monolog\Level;
@@ -52,7 +53,7 @@ final class ErrorHandlingTest extends TestCase
                 details: [new ErrorDetail('duration_minutes', 'out_of_range', 'Must be between 1 and 1440.')],
                 headers: ['Retry-After' => '30'],
             );
-        });
+        })->setArgument(RouteAccess::PERMISSION, RouteAccess::PUBLIC);
 
         $response = $test->handle('GET', '/api/v3/__test/refuse');
         $error = TestApp::error($response);
@@ -72,7 +73,7 @@ final class ErrorHandlingTest extends TestCase
         $test = new TestApp();
         $test->app->get('/api/v3/__test/crash', function (): ResponseInterface {
             throw new \RuntimeException('SQLSTATE[42S02] secret table at /var/www/private/file.php');
-        });
+        })->setArgument(RouteAccess::PERMISSION, RouteAccess::PUBLIC);
 
         $response = $test->handle('GET', '/api/v3/__test/crash');
         $raw = (string) $response->getBody();
@@ -89,6 +90,23 @@ final class ErrorHandlingTest extends TestCase
         self::assertTrue($test->logs->hasRecordThatPasses(
             static fn($record): bool => $record->message === 'Unhandled exception'
                 && ($record->context['request_id'] ?? null) === $error['request_id'],
+            Level::Error,
+        ));
+    }
+
+    public function testARouteWithoutADeclaredPermissionFailsClosed(): void
+    {
+        $test = new TestApp();
+        $test->app->get('/api/v3/__test/undeclared', function (): ResponseInterface {
+            throw new \LogicException('The handler must never run.');
+        });
+
+        $response = $test->handle('GET', '/api/v3/__test/undeclared');
+
+        self::assertSame(500, $response->getStatusCode());
+        self::assertTrue($test->logs->hasRecordThatPasses(
+            static fn($record): bool => ($record->context['exception'] ?? null) instanceof \LogicException
+                && str_contains($record->context['exception']->getMessage(), 'declares no permission'),
             Level::Error,
         ));
     }

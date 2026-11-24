@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Ehf\Api\Tests\Contract;
 
 use Ehf\Api\Http\Error\ErrorCode;
+use Ehf\Api\Http\RouteAccess;
 use Ehf\Api\Tests\Support\TestApp;
 use Opis\JsonSchema\Errors\ErrorFormatter;
 use Opis\JsonSchema\Validator;
@@ -55,7 +56,7 @@ final class OpenApiContractTest extends TestCase
             $pattern = $route->getPattern();
             self::assertStringStartsWith('/api/v3/', $pattern, 'Every route must be under /api/v3.');
             foreach ($route->getMethods() as $method) {
-                $routes[] = strtolower($method) . ' ' . substr($pattern, \strlen('/api/v3'));
+                $routes[] = strtolower($method) . ' ' . self::normalise(substr($pattern, \strlen('/api/v3')));
             }
         }
 
@@ -71,6 +72,27 @@ final class OpenApiContractTest extends TestCase
         sort($routes);
         sort($operations);
         self::assertSame($operations, $routes);
+    }
+
+    public function testEveryRouteDeclaresTheSamePermissionAsTheContract(): void
+    {
+        /** @var RouteInterface $route */
+        foreach ((new TestApp())->app->getRouteCollector()->getRoutes() as $route) {
+            $path = self::normalise(substr($route->getPattern(), \strlen('/api/v3')));
+            foreach ($route->getMethods() as $method) {
+                $operation = $this->paths()[$path][strtolower($method)] ?? null;
+                self::assertIsArray($operation, "{$method} {$path}");
+                $declared = $route->getArgument(RouteAccess::PERMISSION);
+                self::assertNotNull($declared, "{$method} {$path} declares no permission");
+                $contract = $operation['x-permission'];
+                self::assertIsString($contract);
+                if ($declared === RouteAccess::SERVICE_CHECKED) {
+                    self::assertStringContainsString(' or ', $contract, "{$method} {$path}");
+                } else {
+                    self::assertSame($declared, $contract, "{$method} {$path}");
+                }
+            }
+        }
     }
 
     public function testEveryOperationHasTheRequiredAnnotations(): void
@@ -138,6 +160,14 @@ final class OpenApiContractTest extends TestCase
 
         $errors = $result->error() === null ? [] : (new ErrorFormatter())->format($result->error());
         self::assertTrue($result->isValid(), $schemaName . ': ' . json_encode($errors, JSON_THROW_ON_ERROR));
+    }
+
+    /**
+     * `/users/{id:[0-9]+}` → `/users/{id}`.
+     */
+    private static function normalise(string $path): string
+    {
+        return (string) preg_replace('/\{([a-zA-Z]+):(?:[^{}]|\{\d+\})+\}/', '{$1}', $path);
     }
 
     /**

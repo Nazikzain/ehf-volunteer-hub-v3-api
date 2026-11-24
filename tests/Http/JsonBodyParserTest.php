@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Ehf\Api\Tests\Http;
 
+use Ehf\Api\Http\RouteAccess;
 use Ehf\Api\Tests\Support\TestApp;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
@@ -22,7 +23,7 @@ final class JsonBodyParserTest extends TestCase
             $response->getBody()->write(json_encode(['parsed' => $request->getParsedBody()], JSON_THROW_ON_ERROR));
 
             return $response->withHeader('Content-Type', 'application/json');
-        });
+        })->setArgument(RouteAccess::PERMISSION, RouteAccess::PUBLIC);
     }
 
     public function testJsonObjectIsParsed(): void
@@ -122,6 +123,6 @@ final class JsonBodyParserTest extends TestCase
      */
     private function post(array $headers, string $body): ResponseInterface
     {
-        return $this->test->handle('POST', '/api/v3/__test/echo', $headers, $body);
+        return $this->test->handle('POST', '/api/v3/__test/echo', $headers + ['Origin' => TestApp::ALLOWED_ORIGIN], $body);
     }
 }
