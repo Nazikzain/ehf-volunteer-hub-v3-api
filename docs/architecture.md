@@ -15,7 +15,7 @@ specification to the code; where the two ever differ, the specification wins.
 | Services | `src/Services/` | Business rules, transactions, audit and notification events | Build SQL or read raw request data |
 | Authorisation policies | `src/Authorisation/` (Phase 4) | Permission, scope, guards G1–G10, field visibility | Change data |
 | Repositories | `src/Repositories/` (Phase 3+) | Prepared SQL, permitted columns only | Decide permissions |
-| Database | Phinx migrations (Phase 3) | Integrity constraints as a second line of defence | — |
+| Database | `database/migrations/` (Phinx), reference data in `database/reference/` — see [database.md](database.md) | Integrity constraints as a second line of defence | — |
 
 Supporting code: `src/Config/` (environment and validated settings), `src/Infrastructure/`
 (request IDs, logging, database connections), `src/Bootstrap/` (application assembly).
@@ -79,9 +79,10 @@ These are technical defaults inside approved rules; none of them settles a pendi
 | Logs | Monolog JSON lines, secrets redacted by key name | API §3, §11 |
 | SQL session settings | utf8mb4 / utf8mb4_unicode_ci, UTC, strict mode, native prepared statements | Same behaviour on MySQL and MariaDB (A2) |
 
-## Not in Phase 2 (by instruction)
+## Not yet implemented (by phase)
 
-No database tables or migrations; no role bundles or permission seeds; no sessions,
-authentication, CSRF or rate limiting; no volunteer, project, task, hours, review or certificate
-workflows. Phinx, PhpSpreadsheet, mPDF and PHPMailer (approved under A1) are added in the phase
-that first uses each, so that no unused code is shipped.
+- Phase 3 added the schema and reference data (see [database.md](database.md)). Phinx is a runtime
+  dependency so that migrations can run from a release without Composer (H1).
+- Still not implemented: sessions, authentication, CSRF, rate limiting and the permission engine
+  (Phase 4); all business workflows (Phases 5–11). PhpSpreadsheet, mPDF and PHPMailer (approved
+  under A1) are added in the phase that first uses each.

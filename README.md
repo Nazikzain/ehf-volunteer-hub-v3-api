@@ -5,13 +5,27 @@ The new, independent PHP backend for the Ethnic Health Forum Volunteer Hub V3: a
 
 | | |
 |---|---|
-| **Status** | **Phase 2 — backend foundation.** No database tables, no business workflows yet |
+| **Status** | **Phase 3 — database migrations** (on top of the Phase 2 foundation). Schema and reference data only; no authentication or business workflows yet |
 | **Specifications** | Backend API Architecture V1.3.1 (approved) · MySQL Database Architecture V1.4 · Workflow & Business Rules V1.4 · Final Architecture Decision Package |
-| **Approved decisions used** | **A1** Slim 4 + php-di, Phinx, PhpSpreadsheet, mPDF, PHPMailer · **A2** MySQL 8.0.16+ and MariaDB 10.6+ compatibility · **H1** Git/SSH deployment preferred, FTP with checksums otherwise; dependencies built in CI and shipped |
+| **Approved decisions used** | **A1** Slim 4 + php-di, Phinx, PhpSpreadsheet, mPDF, PHPMailer · **A2** MySQL 8.0.16+ and MariaDB 10.6+ compatibility · **H1** Git/SSH deployment preferred, FTP with checksums otherwise; dependencies built in CI and shipped · **REC, D1–D5, AC-4** (Phase 3) |
 | **Frontend** | Separate repository `ehf-volunteer-hub-v3-frontend` |
 
 Nothing from the old backend, database, SQL, endpoints, authentication, configuration or secrets
 is reused (API §2.4).
+
+## What Phase 3 adds
+
+- **Phinx migrations** that build the complete 57-table schema of MySQL Database Architecture
+  V1.4 in an empty database: 177 foreign keys (all `RESTRICT`), 99 named CHECK constraints,
+  InnoDB / `utf8mb4_unicode_ci` throughout.
+- **Reference data** as a versioned migration: status catalogue, roles, the API §6.4 permission
+  codes (D1) plus the AC-4 contact codes, the approved ([A]) role bundles, the field catalogue (D3),
+  review scale and criteria, and empty pending settings. Nothing pending, interim or merely
+  recommended is seeded.
+- **Database tests** run on MySQL 8.0 / 8.4 and MariaDB 10.6 / 11.4: migrations from empty,
+  idempotent re-run, full and step-by-step rollback, identical rebuild, a committed schema
+  snapshot (engine parity), reference-data rules and integrity rules.
+- See **[docs/database.md](docs/database.md)** for creating the database and running migrations.
 
 ## What Phase 2 contains
 
@@ -70,6 +84,17 @@ reason (the variable name, never its value) goes to the PHP error log.
 Settings that depend on pending decisions do not exist yet: session and token lifetimes (A4, A5),
 password policy (A6), rate limits (A7), domains and `SameSite` (A3), email (A11).
 
+## Database
+
+The schema is created only by migrations, from the command line, by a separate migration user
+(API §15.2). Nothing is imported from the old system. Full instructions — creating the empty
+database and its two users, running and checking migrations, rollback rules, reference data and
+tests — are in [docs/database.md](docs/database.md).
+
+```bash
+vendor/bin/phinx migrate -e target
+```
+
 ## Tests and quality checks
 
 ```bash
@@ -104,7 +129,8 @@ CI runs them on `mysql:8.0`, `mysql:8.4`, `mariadb:10.6` and `mariadb:11.4`.
 `.github/workflows/ci.yml` runs on every push and pull request:
 
 1. **quality** — `composer validate --strict`, code style, PHPStan, tests, `composer audit`.
-2. **database** — the compatibility tests on the four engines.
+2. **database** — on each of the four engines: migrate from empty, roll everything back and migrate
+   again through the `phinx` command line, then run the database test suite.
 3. **build** — after both pass, builds the release package and uploads it as an artifact.
 
 ## Release package and deployment preparation
@@ -127,6 +153,8 @@ have not yet been run.
 ```
 public/            index.php (the only web-served file) and .htaccess
 config/            container definitions, middleware order, routes
+database/          Phinx migrations and reference data (Phase 3)
+phinx.php          Phinx configuration (command line only)
 src/
   Bootstrap/       application assembly, fallback error response
   Config/          environment loading and validated settings
@@ -136,6 +164,7 @@ src/
   Authorisation/   policies (Phase 4)
   Repositories/    data access (Phase 3+)
   Infrastructure/  request IDs, logging, database connections
+  Database/        migration base class and Phinx configuration
 openapi/           OpenAPI 3.1 contract and its changelog
 tests/             Unit, Http, Contract, Database
 docs/              architecture notes, deployment, hosting checklist
@@ -146,5 +175,5 @@ storage/logs/      private application logs (not committed)
 
 ## Phase boundary
 
-Phase 2 stops here. Database migrations (Phase 3) start only after approval. See the
-"Remaining blockers for Phase 3" in [CHANGELOG.md](CHANGELOG.md).
+Phase 3 stops here. Authentication, sessions and the permission engine (Phase 4) start only after
+approval. See the remaining blockers in [CHANGELOG.md](CHANGELOG.md).

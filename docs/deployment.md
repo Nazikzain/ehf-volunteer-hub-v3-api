@@ -35,6 +35,7 @@ Inside the release folder:
 |---|---|
 | `public/` | The only directory the web server may serve (`index.php`, `.htaccess`) |
 | `src/`, `config/`, `vendor/` | Application code and production dependencies |
+| `database/`, `phinx.php` | Migrations and reference data, run with `vendor/bin/phinx` from the command line ([database.md](database.md)) |
 | `storage/logs/` | Private, writable log directory (deny-all `.htaccess`) |
 | `.htaccess` | Deny-all safety net for the release root |
 | `.env.example` | The configuration variables; copy to `.env` on the server and fill in |
@@ -85,8 +86,10 @@ Create `.env` next to `public/` (never inside it) from `.env.example`:
   CORS origins and HSTS on; invalid configuration stops the app with a generic `500` instead of
   running unsafely.
 - `CORS_ALLOWED_ORIGINS` — the exact frontend origin(s), depending on decision **A3**.
-- `DB_*` — only once the **new** V3 database and its runtime user exist (Phase 3). Never reuse
-  the old database or credentials.
+- `DB_*` — only once the **new** V3 database and its runtime user exist. Never reuse the old
+  database or credentials.
+- `MIGRATION_DB_*` — the separate migration user, only where and while migrations are run
+  ([database.md](database.md) §3).
 - File permissions: `.env` readable only by the PHP user (for example `600`); `storage/logs`
   writable by PHP.
 
@@ -95,4 +98,5 @@ No real values are kept in this repository.
 ## 5. Rollback
 
 Keep the previous release folder. To roll back, point the web root (or symbolic link) back at
-it. Database rollback procedures arrive with migrations in Phase 3 (Database V1.4 §12–13; A13).
+it. For the database see [database.md](database.md) §3: before go-live migrations can be rolled
+back and re-run; after real data exists, back up first (A13) and fix forward with a new migration.
