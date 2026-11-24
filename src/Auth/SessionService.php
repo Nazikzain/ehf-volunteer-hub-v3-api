@@ -93,6 +93,7 @@ final readonly class SessionService
             volunteerId: $volunteer === null ? null : (int) $volunteer,
             sessionIdHash: $idHash,
             csrfToken: self::csrfToken($sessionId),
+            contextOnly: $resolved['context_only'],
         );
     }
 

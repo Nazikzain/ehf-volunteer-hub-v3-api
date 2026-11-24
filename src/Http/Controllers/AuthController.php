@@ -119,7 +119,7 @@ final readonly class AuthController
             'user' => ['id' => $principal->userId, 'display_name' => $principal->displayName, 'email' => $principal->email],
             'roles' => $principal->roles,
             'permissions' => $principal->permissions === [] ? new \stdClass() : $principal->permissions,
-            'field_access' => PermissionResolver::fieldAccess($principal->permissions),
+            'field_access' => PermissionResolver::fieldAccess($principal->permissions, $principal->contextOnly),
             'volunteer_id' => $principal->volunteerId,
             'csrf_token' => $principal->csrfToken,
         ];

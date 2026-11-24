@@ -15,6 +15,7 @@ final readonly class Principal
     /**
      * @param list<string>                                 $roles       active role codes
      * @param array<string, 'organisation'|list<int>>      $permissions code => scope
+     * @param list<string>                                 $contextOnly codes valid only inside a decision context (R13)
      */
     public function __construct(
         public int $userId,
@@ -26,7 +27,16 @@ final readonly class Principal
         public ?int $volunteerId,
         public string $sessionIdHash,
         public string $csrfToken,
+        public array $contextOnly = [],
     ) {}
+
+    /**
+     * Holds the code outside a decision context too (R13: some bundle codes count only inside one).
+     */
+    public function canOnRecords(string $code): bool
+    {
+        return $this->can($code) && !\in_array($code, $this->contextOnly, true);
+    }
 
     public function can(string $code): bool
     {
