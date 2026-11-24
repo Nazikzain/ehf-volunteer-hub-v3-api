@@ -8,8 +8,8 @@ use Ehf\Api\Tests\Support\TestDatabase;
 use PHPUnit\Framework\TestCase;
 
 /**
- * The reference data seeded by S01 matches the approved decisions (D1, D3, AC-4, REC) and keeps
- * every pending, interim and recommended item out.
+ * The reference data seeded by S01 (D1, D3, AC-4, REC) and S02 (Phase 5: R6, R13) matches the
+ * approved decisions and keeps every pending, interim and recommended item out.
  */
 final class ReferenceDataTest extends TestCase
 {
@@ -38,10 +38,11 @@ final class ReferenceDataTest extends TestCase
     {
         /** @var list<array{code: string, category: string, action_type: string, is_field_code: int, grantable: int}> $expected */
         $expected = require \dirname(__DIR__, 2) . '/database/reference/permissions.php';
+        $expected = [...$expected, ...self::phase5()['permissions']];
 
         $rows = $this->db()->rows('SELECT code, category, action_type, is_field_code, grantable, exception_eligible, basis FROM permissions ORDER BY code');
         self::assertCount(\count($expected), $rows);
-        self::assertCount(148, $rows, 'API §6.4 has 146 codes; AC-4 adds the two contact field codes.');
+        self::assertCount(156, $rows, 'API §6.4 has 146 codes; AC-4 adds the two contact field codes; R6 the eight sensitive field codes.');
 
         $byCode = array_column($rows, null, 'code');
         foreach ($expected as $permission) {
@@ -74,19 +75,24 @@ final class ReferenceDataTest extends TestCase
         self::assertSame(10, (int) $this->db()->scalar("SELECT COUNT(*) FROM permissions WHERE category = 'governance'"));
     }
 
-    public function testOnlyTheAc4FieldCodeInstancesAreSeeded(): void
+    public function testOnlyTheAc4AndR6FieldCodeInstancesAreSeeded(): void
     {
         self::assertSame(
-            ['fields.contact.email', 'fields.contact.phone'],
+            ['fields.contact.email', 'fields.contact.phone',
+                'fields.sensitive.address_line1', 'fields.sensitive.address_line2', 'fields.sensitive.emergency_contact_name', 'fields.sensitive.emergency_contact_phone',
+                'fields.sensitive.emergency_contact_relationship', 'fields.sensitive.nationality', 'fields.sensitive.postcode', 'fields.sensitive.town'],
             array_column($this->db()->rows("SELECT code FROM permissions WHERE code LIKE 'fields.%' ORDER BY code"), 'code'),
         );
-        self::assertSame(0, (int) $this->db()->scalar("SELECT COUNT(*) FROM permissions WHERE code LIKE 'fields.sensitive.%'"), 'Sensitive field codes are pending (R6/D3).');
+        self::assertSame(8, (int) $this->db()->scalar("SELECT COUNT(*) FROM permissions WHERE code LIKE 'fields.sensitive.%' AND is_field_code = 1 AND category = 'operational' AND grantable = 1"));
     }
 
     public function testRoleBundlesMatchTheReferenceFileExactly(): void
     {
         /** @var array<string, list<string>> $bundles */
         $bundles = require \dirname(__DIR__, 2) . '/database/reference/role_permissions.php';
+        foreach (self::phase5()['role_permissions'] as $role => $codes) {
+            $bundles[$role] = [...$bundles[$role], ...$codes];
+        }
 
         foreach ($bundles as $role => $codes) {
             $actual = array_column($this->db()->rows('SELECT permission_code FROM role_permissions WHERE role_code = ? ORDER BY permission_code', [$role]), 'permission_code');
@@ -94,7 +100,7 @@ final class ReferenceDataTest extends TestCase
             self::assertSame($codes, $actual, $role);
         }
 
-        self::assertSame(120, (int) $this->db()->scalar('SELECT COUNT(*) FROM role_permissions'));
+        self::assertSame(132, (int) $this->db()->scalar('SELECT COUNT(*) FROM role_permissions'), '120 from S01; R6 adds 10 for Full Admin, R13 adds 2 for Monitoring Admin.');
     }
 
     public function testBundlesRespectRoleBoundaries(): void
@@ -107,11 +113,22 @@ final class ReferenceDataTest extends TestCase
         self::assertSame(0, (int) $db->scalar("SELECT COUNT(*) FROM role_permissions rp JOIN permissions p ON p.code = rp.permission_code WHERE rp.role_code IN ('full_admin', 'monitoring_admin') AND p.category = 'technical'"), 'No technical authority for operational roles.');
     }
 
-    public function testAc4ContactCodesBelongToFullAdminOnly(): void
+    public function testFieldCodesBelongToTheApprovedRolesOnly(): void
     {
+        $db = $this->db();
+        // AC-4: Full Admin contact; R13: Monitoring Admin contact (decision context only, enforced in code).
         self::assertSame(
-            [['role_code' => 'full_admin', 'permission_code' => 'fields.contact.email'], ['role_code' => 'full_admin', 'permission_code' => 'fields.contact.phone']],
-            $this->db()->rows("SELECT role_code, permission_code FROM role_permissions WHERE permission_code LIKE 'fields.%' ORDER BY role_code, permission_code"),
+            [['role_code' => 'full_admin', 'permission_code' => 'fields.contact.email'], ['role_code' => 'full_admin', 'permission_code' => 'fields.contact.phone'],
+                ['role_code' => 'monitoring_admin', 'permission_code' => 'fields.contact.email'], ['role_code' => 'monitoring_admin', 'permission_code' => 'fields.contact.phone']],
+            $db->rows("SELECT role_code, permission_code FROM role_permissions WHERE permission_code LIKE 'fields.contact.%' ORDER BY role_code, permission_code"),
+        );
+        // R6: all eight sensitive codes and the volunteer-note codes for Full Admin, and nobody else.
+        self::assertSame(['full_admin'], array_column($db->rows("SELECT DISTINCT role_code FROM role_permissions WHERE permission_code LIKE 'fields.sensitive.%' OR permission_code LIKE 'confidential.%'"), 'role_code'));
+        self::assertSame(8, (int) $db->scalar("SELECT COUNT(*) FROM role_permissions WHERE role_code = 'full_admin' AND permission_code LIKE 'fields.sensitive.%'"));
+        self::assertSame(
+            ['confidential.volunteer_notes.create', 'confidential.volunteer_notes.view'],
+            array_column($db->rows("SELECT permission_code FROM role_permissions WHERE permission_code LIKE 'confidential.%' ORDER BY permission_code"), 'permission_code'),
+            'Review and decision notes stay with R17.',
         );
     }
 
@@ -132,7 +149,11 @@ final class ReferenceDataTest extends TestCase
             ['monitoring_admin', 'volunteers.browse'],     // R14
             ['monitoring_admin', 'certificates.view'],     // R15
             ['monitoring_admin', 'reports.hours.view'],    // R16
-            ['full_admin', 'confidential.volunteer_notes.view'], // R6
+            ['monitoring_admin', 'confidential.volunteer_notes.view'], // explicit grant only [A]
+            ['monitoring_admin', 'fields.sensitive.postcode'], // explicit grant only [A]
+            ['full_admin', 'confidential.review_notes.view'], // R17
+            ['full_admin', 'confidential.decision_notes.view'], // R17
+            ['monitoring_admin', 'volunteers.view'],       // R14
             ['full_admin', 'reviews.create'],              // R4
             ['full_admin', 'settings.operational.edit'],   // S1
             ['full_admin', 'certificate_templates.create'], // S2
@@ -186,7 +207,7 @@ final class ReferenceDataTest extends TestCase
         }
     }
 
-    public function testFieldCatalogueCoversPersonalAndConfidentialColumnsExceptPendingSensitiveOnes(): void
+    public function testFieldCatalogueCoversEveryPersonalAndConfidentialColumn(): void
     {
         $db = $this->db();
         $catalogued = array_column($db->rows("SELECT CONCAT(table_name, '.', column_name) AS f FROM field_catalogue"), 'f');
@@ -196,10 +217,13 @@ final class ReferenceDataTest extends TestCase
             self::assertContains($field, $catalogued);
         }
 
-        // Every sensitive column is deliberately uncatalogued (pending R6/D3) and so treated as sensitive.
-        $sensitive = array_column($db->rows("SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'volunteer_sensitive_details' AND COLUMN_NAME NOT IN ('volunteer_id', 'created_at', 'created_by_user_id', 'updated_at', 'updated_by_user_id', 'version')", [$db->name]), 'COLUMN_NAME');
+        // R6: every sensitive column is catalogued with its own code.
+        $sensitive = array_column($db->rows("SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'volunteer_sensitive_details' AND COLUMN_NAME NOT IN ('volunteer_id', 'created_at', 'created_by_user_id', 'updated_at', 'updated_by_user_id', 'version') ORDER BY COLUMN_NAME", [$db->name]), 'COLUMN_NAME');
         self::assertCount(8, $sensitive);
-        self::assertSame(0, (int) $db->scalar("SELECT COUNT(*) FROM field_catalogue WHERE table_name = 'volunteer_sensitive_details' OR field_set = 'sensitive'"));
+        self::assertSame(
+            array_map(static fn(float|int|string|null $c): array => ['column_name' => (string) $c, 'field_set' => 'sensitive', 'access_code' => "fields.sensitive.{$c}", 'write_code' => "fields.sensitive.{$c}", 'classification_status' => 'approved'], $sensitive),
+            $db->rows("SELECT column_name, field_set, access_code, write_code, classification_status FROM field_catalogue WHERE table_name = 'volunteer_sensitive_details' ORDER BY column_name"),
+        );
 
         self::assertSame(
             [['column_name' => 'email', 'access_code' => 'fields.contact.email', 'write_code' => 'fields.contact.email', 'classification_status' => 'approved'],
@@ -233,6 +257,17 @@ final class ReferenceDataTest extends TestCase
             'volunteers', 'projects', 'certificates', 'audit_logs', 'files'] as $table) {
             self::assertSame(0, (int) $db->scalar("SELECT COUNT(*) FROM {$table}"), $table);
         }
+    }
+
+    /**
+     * @return array{permissions: list<array{code: string, category: string, action_type: string, is_field_code: int, grantable: int}>, role_permissions: array<string, list<string>>}
+     */
+    private static function phase5(): array
+    {
+        /** @var array{permissions: list<array{code: string, category: string, action_type: string, is_field_code: int, grantable: int}>, role_permissions: array<string, list<string>>} $data */
+        $data = require \dirname(__DIR__, 2) . '/database/reference/phase5_field_access.php';
+
+        return $data;
     }
 
     private function db(): TestDatabase

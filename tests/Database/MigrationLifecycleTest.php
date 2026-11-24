@@ -42,7 +42,7 @@ final class MigrationLifecycleTest extends TestCase
 
     private const string SNAPSHOT = __DIR__ . '/fixtures/schema.json';
 
-    private const int MIGRATION_COUNT = 19;
+    private const int MIGRATION_COUNT = 20;
 
     private ?TestDatabase $db = null;
 
