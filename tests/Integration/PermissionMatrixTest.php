@@ -10,7 +10,7 @@ use Ehf\Api\Tests\Support\TestSession;
 use PHPUnit\Framework\Attributes\DataProvider;
 
 /**
- * Every Phase 4 endpoint × every persona, against API V1.3.1 Appendix A (transcribed here, not
+ * Every endpoint (Phases 2–5) × every persona, against API V1.3.1 Appendix A (transcribed here, not
  * derived from the seeded bundles, so a wrong bundle fails this test).
  *
  * - Anonymous: public endpoints answer; every other endpoint is `401 unauthenticated`.
@@ -29,6 +29,10 @@ final class PermissionMatrixTest extends IntegrationTestCase
     private const array TM = ['technical_manager'];
 
     private const array SO = ['owner'];
+
+    private const array FA = ['full_admin'];
+
+    private const array V = ['volunteer'];
 
     /** @var array<string, TestSession> */
     private static array $sessions = [];
@@ -79,6 +83,19 @@ final class PermissionMatrixTest extends IntegrationTestCase
             'authorise exception' => ['POST', '/api/v3/operational-exceptions/999999/authorise', self::SO],
             'reject exception' => ['POST', '/api/v3/operational-exceptions/999999/reject', self::SO],
             'revoke exception' => ['POST', '/api/v3/operational-exceptions/999999/revoke', self::SO],
+            'provisioning candidates' => ['GET', '/api/v3/portal-provisioning/candidates', self::TM],
+            'provision portal account' => ['POST', '/api/v3/volunteers/999999/portal-account', self::TM],
+            'own profile' => ['GET', '/api/v3/me/profile', self::V],
+            'edit own profile' => ['PATCH', '/api/v3/me/profile', self::V],
+            'browse volunteers' => ['GET', '/api/v3/volunteers', self::FA],
+            'create volunteer' => ['POST', '/api/v3/volunteers', self::FA],
+            'show volunteer' => ['GET', '/api/v3/volunteers/999999', self::FA],
+            'edit volunteer' => ['PATCH', '/api/v3/volunteers/999999', self::FA],
+            'accept volunteer' => ['POST', '/api/v3/volunteers/999999/accept', self::FA],
+            'change volunteer status' => ['POST', '/api/v3/volunteers/999999/status-changes', self::FA],
+            'volunteer status history' => ['GET', '/api/v3/volunteers/999999/status-history', self::FA],
+            'volunteer notes (R6)' => ['GET', '/api/v3/volunteers/999999/notes', self::FA],
+            'add volunteer note (R6)' => ['POST', '/api/v3/volunteers/999999/notes', self::FA],
             'security audit' => ['GET', '/api/v3/audit-logs/security', self::TM],
             'operational audit (R10: nobody)' => ['GET', '/api/v3/audit-logs/operational', []],
             'verify audit' => ['GET', '/api/v3/audit-logs/verify', self::TM],

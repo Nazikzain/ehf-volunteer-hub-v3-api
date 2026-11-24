@@ -141,6 +141,40 @@ abstract class IntegrationTestCase extends TestCase
         return $u;
     }
 
+    /**
+     * Inserts a volunteer record directly (fixture), with optional sensitive details and account link.
+     *
+     * @param array<string, scalar|null> $fields    volunteers columns
+     * @param array<string, scalar|null> $sensitive volunteer_sensitive_details columns
+     */
+    protected static function createVolunteer(array $fields, array $sensitive = []): int
+    {
+        $db = self::db();
+        $next = (int) $db->scalar('SELECT COALESCE(MAX(CAST(SUBSTRING(reference, 3) AS UNSIGNED)), 0) + 1 FROM volunteers');
+        $fields += ['reference' => \sprintf('V-%06d', $next), 'full_name' => 'Fixture Volunteer', 'status' => 'active'];
+        $id = $db->insert(
+            'INSERT INTO volunteers (' . implode(', ', array_keys($fields)) . ') VALUES (' . implode(', ', array_fill(0, \count($fields), '?')) . ')',
+            array_values($fields),
+        );
+        if ($sensitive !== []) {
+            $sensitive = ['volunteer_id' => $id] + $sensitive;
+            $db->insert(
+                'INSERT INTO volunteer_sensitive_details (' . implode(', ', array_keys($sensitive)) . ') VALUES (' . implode(', ', array_fill(0, \count($sensitive), '?')) . ')',
+                array_values($sensitive),
+            );
+        }
+
+        return $id;
+    }
+
+    protected static function grant(int $userId, string $code, int $grantedBy): void
+    {
+        self::db()->insert(
+            "INSERT INTO user_permission_grants (user_id, permission_code, scope_type, reason, granted_by_user_id, active_key) VALUES (?, ?, 'organisation', 'Test fixture', ?, ?)",
+            [$userId, $code, $grantedBy, "{$userId}:{$code}:organisation"],
+        );
+    }
+
     protected static function createUser(string $email, string $name, string $status = 'active', ?string $password = self::PASSWORD): int
     {
         return self::db()->insert(

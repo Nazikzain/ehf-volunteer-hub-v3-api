@@ -68,7 +68,7 @@ final class AuditTest extends IntegrationTestCase
         self::assertSame(['php_version', 'database', 'migration_level', 'storage_writable', 'sign_in_configured', 'email_configured', 'queue_backlog'], array_keys($health));
         self::assertTrue($health['sign_in_configured']);
         self::assertFalse($health['email_configured']);
-        self::assertSame('20261124001900', $health['migration_level']);
+        self::assertSame('20261124002000', $health['migration_level']);
         $raw = json_encode($health, JSON_THROW_ON_ERROR);
         foreach (['password', 'throwaway', 'DB_', 'root'] as $secret) {
             self::assertStringNotContainsStringIgnoringCase($secret, $raw);

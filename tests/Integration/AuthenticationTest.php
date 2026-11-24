@@ -30,7 +30,12 @@ final class AuthenticationTest extends IntegrationTestCase
         self::assertIsArray($data['permissions']);
         self::assertSame('organisation', $data['permissions']['volunteers.view'] ?? null);
         self::assertArrayNotHasKey('accounts.view', $data['permissions']);
-        self::assertSame(['basic' => true, 'contact' => ['email', 'phone']], $data['field_access']);
+        self::assertSame([
+            'basic' => true,
+            'confidential.volunteer_notes' => true,
+            'contact' => ['email', 'phone'],
+            'sensitive' => ['address_line1', 'address_line2', 'emergency_contact_name', 'emergency_contact_phone', 'emergency_contact_relationship', 'nationality', 'postcode', 'town'],
+        ], $data['field_access']); // R6
         self::assertSame($session->csrf, $data['csrf_token']);
 
         $again = self::data($this->call('GET', '/api/v3/auth/session', $session));
