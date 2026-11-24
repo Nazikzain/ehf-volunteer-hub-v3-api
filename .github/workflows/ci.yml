@@ -50,7 +50,7 @@ jobs:
         run: composer audit --locked
 
   database:
-    name: Database compatibility (${{ matrix.engine }})
+    name: Database (${{ matrix.engine }})
     runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
@@ -96,7 +96,15 @@ jobs:
           echo "Database did not become ready" >&2
           exit 1
 
-      - name: Database compatibility tests
+      - name: Migrations through the command line (empty → all → full rollback → all)
+        run: |
+          vendor/bin/phinx migrate -e test
+          vendor/bin/phinx status -e test
+          vendor/bin/phinx rollback -e test -t 0
+          vendor/bin/phinx migrate -e test
+          vendor/bin/phinx status -e test
+
+      - name: Database tests (engine compatibility, migrations, rollback, schema snapshot, reference data, integrity)
         run: composer test:database -- --fail-on-skipped
 
   build:

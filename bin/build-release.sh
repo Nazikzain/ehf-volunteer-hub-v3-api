@@ -41,12 +41,12 @@ mkdir -p "$STAGE" "$DIST"
 rm -f "$DIST/$NAME.zip" "$DIST/$NAME.zip.sha256"
 
 # 1. Application files (an explicit allowlist: anything not listed is not shipped).
-cp -R composer.json composer.lock public src config "$STAGE/"
+cp -R composer.json composer.lock phinx.php public src config database "$STAGE/"
 mkdir -p "$STAGE/storage/logs" "$STAGE/docs"
 cp storage/.htaccess "$STAGE/storage/.htaccess"
 cp storage/logs/.gitignore "$STAGE/storage/logs/.gitignore"
 cp .env.example README.md "$STAGE/"
-cp docs/deployment.md docs/hosting-compatibility-checklist.md "$STAGE/docs/"
+cp docs/deployment.md docs/hosting-compatibility-checklist.md docs/database.md "$STAGE/docs/"
 cp deploy/root.htaccess "$STAGE/.htaccess"
 rm -f "$STAGE/src/Authorisation/README.md" "$STAGE/src/Repositories/README.md"
 
@@ -64,7 +64,7 @@ find "$STAGE/vendor" -mindepth 3 -maxdepth 3 -type d \( -name tests -o -name Tes
 echo "==> Verifying the package"
 fail() { echo "Package check failed: $*" >&2; exit 1; }
 [[ -f "$STAGE/vendor/autoload.php" ]] || fail "vendor/autoload.php missing"
-for pkg in slim/slim slim/psr7 php-di/php-di monolog/monolog vlucas/phpdotenv; do
+for pkg in slim/slim slim/psr7 php-di/php-di monolog/monolog vlucas/phpdotenv robmorgan/phinx; do
     [[ -d "$STAGE/vendor/$pkg" ]] || fail "runtime dependency $pkg missing"
 done
 for pkg in phpunit phpstan friendsofphp opis symfony/yaml; do
@@ -77,7 +77,9 @@ stray_env="$(find "$STAGE" -name '.env' -o -name '.env.*' ! -name '.env.example'
 [[ -z "$stray_env" ]] || fail "environment file must not be shipped: ${stray_env#"$STAGE"/}"
 while IFS= read -r -d '' file; do
     php -l "$file" >/dev/null || fail "syntax error in $file"
-done < <(find "$STAGE/public" "$STAGE/src" "$STAGE/config" -name '*.php' -print0)
+done < <(find "$STAGE/public" "$STAGE/src" "$STAGE/config" "$STAGE/database" "$STAGE/phinx.php" -name '*.php' -print0)
+[[ "$(find "$STAGE/database/migrations" -name '*.php' | wc -l)" -eq 19 ]] || fail "expected 19 migrations"
+php "$STAGE/vendor/bin/phinx" --version >/dev/null || fail "phinx command not runnable from the package"
 
 # 4. Smoke test: serve the package itself and call the health endpoint.
 echo "==> Smoke test"
