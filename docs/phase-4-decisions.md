@@ -19,7 +19,7 @@ neither exists, the feature is disabled.
 | **R2 / R3** | Several roles per account; allowed combinations | API §6.11 interim [IFC]: **one active role per account (G10)**; the schema and permission engine already support several roles | Implemented as the interim rule |
 | **R8** | Who besides owners may request or view exceptions | API interim [IFC]: owners only (governance codes come only from membership) | Implemented as the interim rule |
 | **R19** | Which codes are exception-eligible; expiry rules | API interim [IFC]: no code is eligible (`permissions.exception_eligible` = 0 everywhere), so every new exception is refused (`422 validation_failed`). Authorise/reject/revoke are implemented and tested | Creating exceptions **effectively off** |
-| **AC-6** | Source of `invitation_email` in the provisioning candidates list | Provisioning is Phase 5 (API §18) | Not in Phase 4 |
+| **AC-6** | Source of `invitation_email` in the provisioning candidates list | Approved in Phase 5 (Option 1); see phase-5-decisions.md | Implemented in Phase 5 |
 | **A11** (not a Phase 4 decision, but needed) | Email provider and emailed events | No email transport exists | `POST /users/{id}/invitation`, `POST /users/{id}/password-reset` and `POST /auth/password/forgot` are **not registered** |
 | **A8** | Two-factor sign-in | Not included (API §17) | Not implemented |
 

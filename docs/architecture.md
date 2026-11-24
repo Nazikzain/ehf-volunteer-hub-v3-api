@@ -55,6 +55,19 @@ Pending decisions are handled as described in [phase-4-decisions.md](phase-4-dec
 | Audit | `AuditLogger`: success records inside the action's transaction; refusals (route gate, guards, sign-in failures) recorded separately; SHA-256 hash chain checked by `GET /audit-logs/verify`; shortened IP addresses; no secrets or personal values in details |
 | Lost updates | `version` on account status actions and exception decisions (`409 stale_version`) |
 
+## Volunteer data and field privacy (Phase 5)
+
+See [phase-5-decisions.md](phase-5-decisions.md).
+
+| Topic | Implementation |
+|---|---|
+| Field visibility | `Authorisation\FieldPolicy` reads `field_catalogue`: `basic` fields for anyone who may see the record; `contact` and `sensitive` fields only with their own code (read and write); uncatalogued personal columns are inaccessible. Unreadable fields are omitted; `meta.field_sets` lists the sets returned |
+| Writes | Sending a field the caller may not write → `403 field_not_permitted` (audited as refused), before any value validation |
+| Decision context (R13) | Bundle codes listed in `FieldPolicy::DECISION_CONTEXT_ONLY` are tracked as context-only by `PermissionResolver`; `Principal::canOnRecords()` ignores them, `VolunteerService::decisionContext()` honours them |
+| Own profile (R12) | Record from the session only; every own field readable; only `FieldPolicy::SELF_EDITABLE` writable; never notes |
+| Provisioning | Account data only; the link `volunteers.user_id` is the only volunteer column written; the address never goes back to the volunteer record |
+| Audit | Field names only, never values |
+
 ## Response formats (API §4.2–4.3)
 
 Success:
@@ -100,6 +113,7 @@ These are technical defaults inside approved rules; none of them settles a pendi
   dependency so that migrations can run from a release without Composer (H1).
 - Phase 4 added authentication, sessions, CSRF/Origin protection, the permission engine,
   governance and audit (see above).
-- Still not implemented: all business workflows (Phases 5–11) and the endpoints blocked by
-  pending decisions (phase-4-decisions.md). PhpSpreadsheet, mPDF and PHPMailer (approved
+- Phase 5 added volunteer records, provisioning and the own profile (see above).
+- Still not implemented: the business workflows of Phases 6–11 and the endpoints blocked by
+  pending decisions (phase-4-decisions.md, phase-5-decisions.md). PhpSpreadsheet, mPDF and PHPMailer (approved
   under A1) are added in the phase that first uses each.

@@ -5,13 +5,27 @@ The new, independent PHP backend for the Ethnic Health Forum Volunteer Hub V3: a
 
 | | |
 |---|---|
-| **Status** | **Phase 4 — authentication, permissions, governance and audit** (on top of Phases 2–3). No business workflows yet. **Sign-in stays off until decisions A3–A7 are configured** ([docs/phase-4-decisions.md](docs/phase-4-decisions.md)) |
+| **Status** | **Phase 5 — volunteer records, portal provisioning and own profile** (on top of Phases 2–4). **Sign-in stays off until decisions A3–A7 are configured** ([docs/phase-4-decisions.md](docs/phase-4-decisions.md)); Phase 5 decisions in [docs/phase-5-decisions.md](docs/phase-5-decisions.md) |
 | **Specifications** | Backend API Architecture V1.3.1 (approved) · MySQL Database Architecture V1.4 · Workflow & Business Rules V1.4 · Final Architecture Decision Package |
-| **Approved decisions used** | **A1** Slim 4 + php-di, Phinx, PhpSpreadsheet, mPDF, PHPMailer · **A2** MySQL 8.0.16+ and MariaDB 10.6+ compatibility · **H1** Git/SSH deployment preferred, FTP with checksums otherwise; dependencies built in CI and shipped · **REC, D1–D5, AC-4** (Phase 3) |
+| **Approved decisions used** | **A1** Slim 4 + php-di, Phinx, PhpSpreadsheet, mPDF, PHPMailer · **A2** MySQL 8.0.16+ and MariaDB 10.6+ compatibility · **H1** Git/SSH deployment preferred, FTP with checksums otherwise; dependencies built in CI and shipped · **REC, D1–D5, AC-4** (Phase 3) · **W1, R6, R12, R13, R18, AC-6 Option 1** (Phase 5) |
 | **Frontend** | Separate repository `ehf-volunteer-hub-v3-frontend` |
 
 Nothing from the old backend, database, SQL, endpoints, authentication, configuration or secrets
 is reused (API §2.4).
+
+## What Phase 5 adds
+
+- Volunteer records (API §7.4): browse, create, edit, accept, status changes with history, and
+  confidential notes, under the W1 rules (statuses, full name plus email or phone, duplicate email).
+- Field-level privacy from the central field catalogue: unreadable fields are left out, unwritable
+  ones refused (`403 field_not_permitted`). R6 gives Full Admin the eight sensitive fields and
+  volunteer notes; R13 gives Monitoring Admin email and phone inside a decision context only.
+- Portal provisioning (API §7.2): eligible candidates with the invitation email (R18, AC-6), and
+  invited accounts linked to the volunteer without touching the volunteer's data. Sending the
+  invitation stays off until A5 and A11.
+- `GET`/`PATCH /me/profile` (API §7.3) with the R12 self-editable fields.
+- Reference-data migration S02 (no schema change), OpenAPI 0.5.0, and permission, privacy and
+  field-leak tests on MySQL and MariaDB.
 
 ## What Phase 4 adds
 
@@ -192,5 +206,5 @@ storage/logs/      private application logs (not committed)
 
 ## Phase boundary
 
-Phase 4 stops here. Volunteer records and portal provisioning (Phase 5) start only after approval.
+Phase 5 stops here. Projects, assignments and tasks (Phase 6) start only after approval.
 See the remaining blockers in [CHANGELOG.md](CHANGELOG.md).

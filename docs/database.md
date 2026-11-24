@@ -9,7 +9,7 @@ credentials. Migrations build the schema in an **empty** database.
 
 ## 1. What the migrations build
 
-19 Phinx migrations in `database/migrations/`, in the order of Database V1.4 §6.3:
+20 Phinx migrations in `database/migrations/`: the 19 of Database V1.4 §6.3, then S02 (Phase 5):
 
 | Migration | Contents |
 |---|---|
@@ -32,6 +32,7 @@ credentials. Migrations build the schema in an **empty** database.
 | M17 `CreateNotificationsEmailExports` | `notifications`, `email_outbox`, `exports` |
 | M18 `CreateSettingsRetentionAudit` | `settings`, `retention_policies`, `audit_logs` |
 | S01 `SeedReferenceData` | Reference data (section 4) |
+| S02 `SeedPhase5FieldAccess` | Phase 5 field access: R6 and R13 reference data (section 4); no schema change |
 
 Result: **57 tables** (56 + `schema_migrations`, the Phinx log), 177 foreign keys (all
 `ON DELETE RESTRICT ON UPDATE RESTRICT`), 99 named CHECK constraints, InnoDB and
@@ -139,8 +140,8 @@ with a new migration).
 
 **Deliberately not seeded** (pending, interim or recommended only):
 
-- Sensitive field-code instances and their field-catalogue rows (R6/D3); uncatalogued personal
-  columns are treated as sensitive.
+- (Until S02) sensitive field-code instances and their field-catalogue rows (R6/D3);
+  uncatalogued personal columns are treated as sensitive.
 - [R] bundle entries of API §6.5: Full Admin `dashboard.monitoring`, `review_criteria.view` (Full
   Admin and Monitoring Admin), Full Admin `reviews.view_submitted`.
 - Codes held by no role while pending: confidential notes (R6/R17), review authoring (R4/R5/R20),
@@ -148,6 +149,20 @@ with a new migration).
   operational audit (R10), Monitoring Admin report types/browsing/certificates (R13–R16),
   operational/certificate/review-criteria settings and retention (S1–S4).
 - `exception_eligible` is 0 for every code (R19).
+
+### S02 — Phase 5 field access (R6, R13 approved)
+
+From `database/reference/phase5_field_access.php`:
+
+| Data | Rows | Basis |
+|---|---|---|
+| Permissions | +8 (156 in total) | `fields.sensitive.<column>` for the eight `volunteer_sensitive_details` columns (R6, D3 pattern) |
+| Field catalogue | +8 (23 in total) | The eight sensitive columns, field set `sensitive`, each with its own code |
+| Role bundles | +12 (132 in total) | Full Admin: the eight sensitive codes and `confidential.volunteer_notes.view`/`.create` (R6). Monitoring Admin: `fields.contact.email`/`.phone` (R13), honoured inside a decision context only |
+
+Still not seeded: review and decision note codes (R17), Monitoring Admin browsing (R14). R12 (the
+volunteer's self-editable fields) has no database representation; it lives in
+`Authorisation\FieldPolicy::SELF_EDITABLE`.
 - Retention policies (S4) — empty until EHF approves.
 - The bootstrap System Owner and any Technical Manager grant (RS4/R7) — the `bin/console owner:create`
   path is Phase 4 and still needs those decisions.

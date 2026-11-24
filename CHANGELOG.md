@@ -1,5 +1,37 @@
 # Changelog
 
+## Phase 5 — Volunteer records, portal provisioning, own profile (awaiting approval)
+
+Implements API V1.3.1 §7.4, the provisioning part of §7.2 and `/me/profile` (§7.3) with the
+approved decisions W1, R6, R12, R13, R18 and AC-6 Option 1 (docs/phase-5-decisions.md).
+
+### Added
+- Migration S02 (reference data only): eight `fields.sensitive.*` codes and catalogue rows (R6);
+  Full Admin gains them and `confidential.volunteer_notes.view`/`.create` (R6); Monitoring Admin
+  gains `fields.contact.email`/`.phone` (R13). 156 permissions, 132 bundle entries.
+- `Authorisation\FieldPolicy`: central field visibility from `field_catalogue`, R12 self-edit
+  list, R13 decision-context-only rule (with context-only codes tracked by `PermissionResolver`
+  and reported under `field_access.decision_context`).
+- 13 endpoints: volunteers (list, create, show, edit, accept, status changes, status history,
+  notes, add note), provisioning candidates and provisioning, `GET`/`PATCH /me/profile`.
+- Audit events `volunteer.created`, `.updated`, `.accepted`, `.status_changed`, `.self_updated`,
+  `note.viewed`, `note.created`, `account.provisioned` (field names only, never values).
+- OpenAPI 0.5.0 (55 operations) with `Volunteer`, `ProvisioningCandidate` (AC-6 clarification)
+  and `PortalAccountResult`.
+- Tests: permission matrix extended to 55 endpoints; volunteer lifecycle, provisioning, profile and
+  privacy suites, including a field-leak sweep with sentinel values across roles and endpoints.
+
+### Off until decided
+Sending invitations (A5, A11); assigning the volunteer role at provisioning (AC-2); Monitoring
+Admin browsing (R14); the Technical Manager flag for ended volunteers (Phase 11).
+
+### Remaining blockers for Phase 6
+1. Project-owner approval of Phase 5.
+2. W2 (project, assignment and task statuses and rules; one assignee per task).
+3. Still open from earlier phases for real use: A3, A4, A6, A7, RS4, R7 (sign-in and first owner),
+   A5, A11 (invitations); R14 if Monitoring Admin should browse.
+4. Read-only hosting checks (docs/hosting-compatibility-checklist.md).
+
 ## Phase 4 — Authentication, permissions, governance and audit (awaiting approval)
 
 Implements API V1.3.1 §5, §6 and §7.1, §7.2 (accounts, roles, grants, sessions), §7.17, §7.18,
