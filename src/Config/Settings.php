@@ -30,6 +30,7 @@ final readonly class Settings
         public string $logPath,
         public string $logLevel,
         public ?DatabaseSettings $database,
+        public ?AuthSettings $auth = null,
     ) {}
 
     public static function fromEnvironment(Environment $env, string $projectRoot): self
@@ -68,6 +69,7 @@ final readonly class Settings
             logPath: $env->get('LOG_PATH') ?? $projectRoot . '/storage/logs/app.log',
             logLevel: $logLevel,
             database: DatabaseSettings::fromEnvironment($env),
+            auth: AuthSettings::fromEnvironment($env),
         );
     }
 
