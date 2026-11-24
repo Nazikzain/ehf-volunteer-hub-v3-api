@@ -78,7 +78,9 @@ stray_env="$(find "$STAGE" -name '.env' -o -name '.env.*' ! -name '.env.example'
 while IFS= read -r -d '' file; do
     php -l "$file" >/dev/null || fail "syntax error in $file"
 done < <(find "$STAGE/public" "$STAGE/src" "$STAGE/config" "$STAGE/database" "$STAGE/phinx.php" -name '*.php' -print0)
-[[ "$(find "$STAGE/database/migrations" -name '*.php' | wc -l)" -eq 19 ]] || fail "expected 19 migrations"
+expected_migrations="$(find "$ROOT/database/migrations" -name '*.php' | wc -l)"
+[[ "$expected_migrations" -gt 0 && "$(find "$STAGE/database/migrations" -name '*.php' | wc -l)" -eq "$expected_migrations" ]] \
+    || fail "expected all ${expected_migrations} migrations in the package"
 php "$STAGE/vendor/bin/phinx" --version >/dev/null || fail "phinx command not runnable from the package"
 
 # 4. Smoke test: serve the package itself and call the health endpoint.
