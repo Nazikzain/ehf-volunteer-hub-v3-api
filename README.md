@@ -5,13 +5,28 @@ The new, independent PHP backend for the Ethnic Health Forum Volunteer Hub V3: a
 
 | | |
 |---|---|
-| **Status** | **Phase 3 — database migrations** (on top of the Phase 2 foundation). Schema and reference data only; no authentication or business workflows yet |
+| **Status** | **Phase 4 — authentication, permissions, governance and audit** (on top of Phases 2–3). No business workflows yet. **Sign-in stays off until decisions A3–A7 are configured** ([docs/phase-4-decisions.md](docs/phase-4-decisions.md)) |
 | **Specifications** | Backend API Architecture V1.3.1 (approved) · MySQL Database Architecture V1.4 · Workflow & Business Rules V1.4 · Final Architecture Decision Package |
 | **Approved decisions used** | **A1** Slim 4 + php-di, Phinx, PhpSpreadsheet, mPDF, PHPMailer · **A2** MySQL 8.0.16+ and MariaDB 10.6+ compatibility · **H1** Git/SSH deployment preferred, FTP with checksums otherwise; dependencies built in CI and shipped · **REC, D1–D5, AC-4** (Phase 3) |
 | **Frontend** | Separate repository `ehf-volunteer-hub-v3-frontend` |
 
 Nothing from the old backend, database, SQL, endpoints, authentication, configuration or secrets
 is reused (API §2.4).
+
+## What Phase 4 adds
+
+- Sign-in, sign-out, password change, invitation activation and password reset (API §7.1), with
+  server-side sessions, CSRF/Origin protection and rate limits.
+- The permission engine: per-request effective permissions from role bundles, grants, exceptions
+  and System Owner membership; every route declares its one permission code.
+- Account administration, ordinary roles, grants and sessions for Technical Managers (§7.2).
+- System Owner governance: owner removal, the Technical Manager role, operational exceptions
+  (§7.17), with guards G3, G4, G5, G7, G8, G10 and the R7-C, R8, R19 interims.
+- Audit logging with a verifiable hash chain (§7.18, §11) and technical health (§7.19).
+- A permission matrix test of every endpoint × every role against API Appendix A, plus end-to-end
+  tests on MySQL and MariaDB.
+- Features that depend on undecided items are off and listed in
+  [docs/phase-4-decisions.md](docs/phase-4-decisions.md).
 
 ## What Phase 3 adds
 
@@ -76,13 +91,15 @@ CORS origins for local development. **An unset `APP_ENV` means `production`** (s
 | `HSTS_ENABLED` | Send `Strict-Transport-Security` (cannot be off in staging/production) | on in staging/production |
 | `MAX_JSON_BODY_BYTES` | Largest JSON request body | `1048576` |
 | `LOG_PATH`, `LOG_LEVEL` | Application log file (JSON lines) and level | `storage/logs/app.log`, `info` |
+| `AUTH_*` (10 variables) | Sign-in, session, password and rate-limit values (decisions A3, A4, A6, A7, pending) | unset = sign-in off; partial = start-up error |
 | `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD` | Runtime database user (Phase 3 onwards) | unset |
 
 Invalid configuration stops the application at start-up with a generic `500` response; the
 reason (the variable name, never its value) goes to the PHP error log.
 
-Settings that depend on pending decisions do not exist yet: session and token lifetimes (A4, A5),
-password policy (A6), rate limits (A7), domains and `SameSite` (A3), email (A11).
+Sign-in settings have no defaults because decisions A3, A4, A6 and A7 are pending; email (A11) and
+token lifetimes (A5) are not configurable yet because sending invitations and reset emails is not
+available.
 
 ## Database
 
@@ -175,5 +192,5 @@ storage/logs/      private application logs (not committed)
 
 ## Phase boundary
 
-Phase 3 stops here. Authentication, sessions and the permission engine (Phase 4) start only after
-approval. See the remaining blockers in [CHANGELOG.md](CHANGELOG.md).
+Phase 4 stops here. Volunteer records and portal provisioning (Phase 5) start only after approval.
+See the remaining blockers in [CHANGELOG.md](CHANGELOG.md).

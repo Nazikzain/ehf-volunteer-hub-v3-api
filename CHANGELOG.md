@@ -1,5 +1,42 @@
 # Changelog
 
+## Phase 4 — Authentication, permissions, governance and audit (awaiting approval)
+
+Implements API V1.3.1 §5, §6 and §7.1, §7.2 (accounts, roles, grants, sessions), §7.17, §7.18,
+§7.19. No Phase 4 decision is approved; see docs/phase-4-decisions.md for how each is handled.
+
+### Added
+- Pipeline steps 5–8: session, Origin/CSRF, authentication with per-route permission, rate
+  limiting; plus Idempotency-Key repeat protection for creates.
+- Sign-in (Argon2id; identical failures; per-account and per-IP limits), sign-out, password
+  change, invitation activation and password reset by token; server-side sessions with idle and
+  absolute limits and `session_version` sign-out-everywhere.
+- Permission engine (union of bundles, grants, exceptions, owner membership; no caching;
+  no implied codes) and `GET /auth/session` with roles, permissions, field access, CSRF token.
+- Accounts (create, list, show, edit display name, suspend, reactivate, deactivate, cancel
+  invitation), ordinary roles, grants, role/permission catalogues, session administration.
+- Governance: list/remove System Owners (G7), grant/revoke `technical_manager` through owner
+  authorisations (G3, G4, G10, R7-C interim, password re-entry), operational exceptions
+  (owners only; none eligible until R19; recipient never authorises; expiry immediate).
+- Audit logger with SHA-256 hash chain, denied-attempt records, security/operational/entry/verify
+  endpoints; `GET /system/health`.
+- OpenAPI 0.4.0: 42 operations with x-permission etc.; contract test checks each route's declared
+  permission equals the contract.
+- Tests: permission matrix (42 endpoints × 6 personas vs Appendix A), authentication, account and
+  access, governance, audit — end to end on MySQL and MariaDB.
+
+### Off until decided
+Sign-in (A3, A4, A6, A7 values); sending invitations and reset emails (A5, A11); adding owners
+(R7); bootstrap of the first owner (RS4, R7); creating exceptions (R19); operational audit view
+(R10); changing a sign-in email (re-verification not approved).
+
+### Remaining blockers for Phase 5
+1. Project-owner approval of Phase 4.
+2. Decisions for real sign-in: A3, A4, A6, A7 (values), RS4 and R7 (first owner), A5 and A11
+   (invitations); and R7-C, R2/R3, R8, R19 to replace their interims if wanted.
+3. Phase 5 decisions: W1, R6 (or confirm the interim), R12, R13, R18, and AC-6 (provisioning).
+4. Read-only hosting checks (docs/hosting-compatibility-checklist.md).
+
 ## Phase 3 — Database migrations (awaiting approval)
 
 Implements MySQL Database Architecture V1.4 with approved decisions REC, D1–D5 and AC-4

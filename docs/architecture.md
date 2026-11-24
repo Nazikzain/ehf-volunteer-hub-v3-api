@@ -31,14 +31,29 @@ Outermost first, as defined in `config/middleware.php` and enforced by `tests/Un
 | 3 | CORS (exact allowlist, credentials, no wildcards) | Phase 2 ✔ |
 | — | Central error handling (wraps everything inside it) | Phase 2 ✔ |
 | 4 | JSON parsing (JSON objects only, size limit, 415 for other types) | Phase 2 ✔ |
-| 5 | Session | Phase 4 (A3, A4, D4) |
-| 6 | Origin and CSRF check | Phase 4 |
-| 7 | Authentication | Phase 4 |
-| 8 | Rate limiting | Phase 4 (A7) |
-| — | Routing → controller | Phase 2 ✔ |
+| — | Routing (before the session, so later steps can read the route's permission) | Phase 2 ✔ |
+| 5 | Session (`SessionMiddleware`) | Phase 4 ✔ |
+| 6 | Origin and CSRF check (`OriginCsrfMiddleware`) | Phase 4 ✔ |
+| 7 | Authentication and the route's permission (`AuthenticationMiddleware`) | Phase 4 ✔ |
+| 8 | Rate limiting (`RateLimitMiddleware` for token endpoints; sign-in limits in `AuthService`) | Phase 4 ✔ |
+| — | Repeat protection for creates (`IdempotencyMiddleware`, API §4.1) | Phase 4 ✔ |
 
-Steps 5–8 are not stubbed: a placeholder that "passes" would look like protection without being
-it. No route needs them yet; the only route is the public health check.
+## Authentication, sessions and permissions (Phase 4)
+
+Pending decisions are handled as described in [phase-4-decisions.md](phase-4-decisions.md).
+
+| Topic | Implementation |
+|---|---|
+| Passwords | Argon2id (PHP default parameters); policy = configured length only (A6) |
+| Sign-in | Same `401 invalid_credentials` for every failure; dummy hash when no account matches; failures limited per account and per IP (A7) → `429` with `Retry-After` |
+| Sessions | Server-side (`sessions`). Cookie `__Host-ehf_session` (Secure, HttpOnly, Path=/, SameSite from A3) holds 256 random bits; only the SHA-256 is stored. Valid only while not revoked, within the idle and absolute limits (A4), the account is active and `session_version` is unchanged |
+| Signing out everywhere | `session_version` is increased on password change or reset, suspension, deactivation, and any role, grant, exception or owner change |
+| CSRF / Origin | Every POST, PUT, PATCH and DELETE needs an allowed `Origin`; signed in, also `X-CSRF-Token` (derived from the session ID by HMAC; returned by `GET /auth/session`) |
+| Route permission | Each route declares exactly one code (`RouteAccess`, mirrored by OpenAPI `x-permission`, checked by the contract test); a route without one fails closed with 500 |
+| Effective permissions | Union, per request, of role bundles + active unexpired grants + authorised unexpired exceptions (Technical Managers only) + governance codes from an active owner membership. No caching: revocation and expiry apply on the next request. No code implies another |
+| Guards | G3, G4, G5, G7 (locked owner rows), G8, G10 (interim), R7-C (interim block), R8 and R19 interims — in `AccessService`, `GovernanceService`, `AccountService` |
+| Audit | `AuditLogger`: success records inside the action's transaction; refusals (route gate, guards, sign-in failures) recorded separately; SHA-256 hash chain checked by `GET /audit-logs/verify`; shortened IP addresses; no secrets or personal values in details |
+| Lost updates | `version` on account status actions and exception decisions (`409 stale_version`) |
 
 ## Response formats (API §4.2–4.3)
 
@@ -83,6 +98,8 @@ These are technical defaults inside approved rules; none of them settles a pendi
 
 - Phase 3 added the schema and reference data (see [database.md](database.md)). Phinx is a runtime
   dependency so that migrations can run from a release without Composer (H1).
-- Still not implemented: sessions, authentication, CSRF, rate limiting and the permission engine
-  (Phase 4); all business workflows (Phases 5–11). PhpSpreadsheet, mPDF and PHPMailer (approved
+- Phase 4 added authentication, sessions, CSRF/Origin protection, the permission engine,
+  governance and audit (see above).
+- Still not implemented: all business workflows (Phases 5–11) and the endpoints blocked by
+  pending decisions (phase-4-decisions.md). PhpSpreadsheet, mPDF and PHPMailer (approved
   under A1) are added in the phase that first uses each.
