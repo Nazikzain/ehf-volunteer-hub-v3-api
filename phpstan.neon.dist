@@ -10,4 +10,6 @@ parameters:
         - config
         - public
         - tests
+        - database
+        - phinx.php
     tmpDir: var/phpstan
