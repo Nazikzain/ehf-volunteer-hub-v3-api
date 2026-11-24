@@ -136,6 +136,16 @@ final class TestDatabase
         return $rows;
     }
 
+    /**
+     * @param list<scalar|null> $params
+     */
+    public function insert(string $sql, array $params = []): int
+    {
+        $this->pdo->prepare($sql)->execute($params);
+
+        return (int) $this->pdo->lastInsertId();
+    }
+
     public function scalar(string $sql, mixed ...$params): string|int|null
     {
         $statement = $this->pdo->prepare($sql);

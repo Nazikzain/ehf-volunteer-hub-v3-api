@@ -51,7 +51,7 @@
             "php -S 127.0.0.1:8080 -t public public/index.php"
         ],
         "test": "phpunit --testsuite unit,http,contract",
-        "test:database": "phpunit --testsuite database",
+        "test:database": "phpunit --testsuite database,integration",
         "db:migrate": "phinx migrate -e target",
         "db:status": "phinx status -e target",
         "analyse": "phpstan analyse --memory-limit=1G --no-progress",
