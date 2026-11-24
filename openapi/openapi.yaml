@@ -1,11 +1,12 @@
 openapi: 3.1.0
 info:
   title: EHF Volunteer Hub V3 API
-  version: 0.4.0
+  version: 0.5.0
   description: 'Contract for the EHF Volunteer Hub V3 backend, written from Backend API Architecture Specification
     V1.3.1 (approved). Paths are added phase by phase after each approval gate (API §12). Phase 4: authentication
     and sessions, accounts, roles, grants, sessions, System Owner governance, operational exceptions, audit logs
-    and system health. Endpoints blocked by an unresolved decision are not included (docs/phase-4-decisions.md).'
+    and system health. Phase 5: volunteer records, portal provisioning and the own profile. Endpoints blocked by
+    an unresolved decision are not included (docs/phase-4-decisions.md, docs/phase-5-decisions.md).'
   x-architecture-specification: Backend API Architecture V1.3.1
 servers:
 - url: /api/v3
@@ -14,13 +15,16 @@ tags:
 - name: audit-logs
 - name: auth
 - name: health
+- name: me
 - name: operational-exceptions
 - name: permissions
+- name: portal-provisioning
 - name: roles
 - name: sessions
 - name: system
 - name: system-owners
 - name: users
+- name: volunteers
 paths:
   /health:
     get:
@@ -2440,6 +2444,1064 @@ paths:
           $ref: '#/components/responses/Error'
         '500':
           $ref: '#/components/responses/Error'
+  /portal-provisioning/candidates:
+    get:
+      tags:
+      - portal-provisioning
+      operationId: getPortalProvisioningCandidates
+      summary: 'Volunteers ready for a portal account (W1: accepted or active, no account). Each item: volunteer_id,
+        volunteer_reference, name, invitation_email (AC-6 Option 1: the recorded contact email, shown in full (R18),
+        or null). Schema ProvisioningCandidate.'
+      security:
+      - sessionCookie: []
+      x-action-type: view
+      x-permission: accounts.provision
+      x-scope: organisation
+      x-context: none
+      x-field-sets:
+      - basic
+      - contact
+      x-guards: []
+      x-workflow-dependency: none
+      x-audit: none
+      parameters:
+      - name: q
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: per_page
+        in: query
+        required: false
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Success.
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/XRequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+        '422':
+          $ref: '#/components/responses/Error'
+        '429':
+          $ref: '#/components/responses/Error'
+        '500':
+          $ref: '#/components/responses/Error'
+  /volunteers/{id}/portal-account:
+    post:
+      tags:
+      - volunteers
+      operationId: postVolunteersIdPortalAccount
+      summary: 'Provision an invited account linked to the volunteer (account data only; volunteer data and status
+        unchanged). invitation_email is required when the volunteer has no recorded email (AC-6). Sending the invitation
+        needs A5/A11: send_invitation true returns 503 maintenance; use false. The volunteer role is assigned separately
+        (AC-2 pending). Schema PortalAccountResult.'
+      security:
+      - sessionCookie: []
+      x-action-type: create
+      x-permission: accounts.provision
+      x-scope: organisation
+      x-context: none
+      x-field-sets: []
+      x-guards: []
+      x-workflow-dependency: none
+      x-audit: account.provisioned
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          minimum: 1
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                invitation_email:
+                  type: string
+                  format: email
+                  maxLength: 254
+                send_invitation:
+                  type: boolean
+                  default: true
+      responses:
+        '201':
+          description: Success.
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/XRequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+        '409':
+          $ref: '#/components/responses/Error'
+        '422':
+          $ref: '#/components/responses/Error'
+        '429':
+          $ref: '#/components/responses/Error'
+        '500':
+          $ref: '#/components/responses/Error'
+        '503':
+          $ref: '#/components/responses/Error'
+  /me/profile:
+    get:
+      tags:
+      - me
+      operationId: getMeProfile
+      summary: Own volunteer record, including own sensitive fields, never notes; editable_fields lists the R12
+        fields. Schema Volunteer.
+      security:
+      - sessionCookie: []
+      x-action-type: view
+      x-permission: self.profile.view
+      x-scope: organisation
+      x-context: none
+      x-field-sets:
+      - basic
+      - contact
+      - sensitive
+      x-guards: []
+      x-workflow-dependency: none
+      x-audit: none
+      responses:
+        '200':
+          description: Success.
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/XRequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+        '429':
+          $ref: '#/components/responses/Error'
+        '500':
+          $ref: '#/components/responses/Error'
+    patch:
+      tags:
+      - me
+      operationId: patchMeProfile
+      summary: 'Edit own record; only the R12 fields (others: 422 field_not_editable).'
+      security:
+      - sessionCookie: []
+      x-action-type: edit
+      x-permission: self.profile.edit
+      x-scope: organisation
+      x-context: none
+      x-field-sets:
+      - basic
+      - contact
+      - sensitive
+      x-guards: []
+      x-workflow-dependency: none
+      x-audit: volunteer.self_updated
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                version:
+                  type: integer
+                  minimum: 1
+                preferred_name:
+                  type:
+                  - string
+                  - 'null'
+                  minLength: 1
+                  maxLength: 100
+                  x-field-set: basic
+                phone:
+                  type:
+                  - string
+                  - 'null'
+                  maxLength: 40
+                  pattern: ^\+?[0-9][0-9 ()\-]{4,38}[0-9]$
+                  x-field-set: contact
+                address_line1:
+                  type:
+                  - string
+                  - 'null'
+                  minLength: 1
+                  maxLength: 150
+                  x-field-set: sensitive
+                address_line2:
+                  type:
+                  - string
+                  - 'null'
+                  minLength: 1
+                  maxLength: 150
+                  x-field-set: sensitive
+                town:
+                  type:
+                  - string
+                  - 'null'
+                  minLength: 1
+                  maxLength: 100
+                  x-field-set: sensitive
+                postcode:
+                  type:
+                  - string
+                  - 'null'
+                  maxLength: 12
+                  x-field-set: sensitive
+                emergency_contact_name:
+                  type:
+                  - string
+                  - 'null'
+                  minLength: 1
+                  maxLength: 150
+                  x-field-set: sensitive
+                emergency_contact_phone:
+                  type:
+                  - string
+                  - 'null'
+                  maxLength: 40
+                  pattern: ^\+?[0-9][0-9 ()\-]{4,38}[0-9]$
+                  x-field-set: sensitive
+                emergency_contact_relationship:
+                  type:
+                  - string
+                  - 'null'
+                  minLength: 1
+                  maxLength: 60
+                  x-field-set: sensitive
+              required:
+              - version
+      responses:
+        '200':
+          description: Success.
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/XRequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+        '409':
+          $ref: '#/components/responses/Error'
+        '422':
+          $ref: '#/components/responses/Error'
+        '429':
+          $ref: '#/components/responses/Error'
+        '500':
+          $ref: '#/components/responses/Error'
+  /volunteers:
+    get:
+      tags:
+      - volunteers
+      operationId: getVolunteers
+      summary: Browse volunteers; only the fields the caller may read (meta.field_sets). q searches name, preferred
+        name, reference, and email only if readable. Schema Volunteer.
+      security:
+      - sessionCookie: []
+      x-action-type: view
+      x-permission: volunteers.browse
+      x-scope: organisation
+      x-context: none
+      x-field-sets:
+      - basic
+      - contact
+      - sensitive
+      x-guards: []
+      x-workflow-dependency: none
+      x-audit: none
+      parameters:
+      - name: q
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: status
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: project_id
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: sort
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: per_page
+        in: query
+        required: false
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Success.
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/XRequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+        '422':
+          $ref: '#/components/responses/Error'
+        '429':
+          $ref: '#/components/responses/Error'
+        '500':
+          $ref: '#/components/responses/Error'
+    post:
+      tags:
+      - volunteers
+      operationId: postVolunteers
+      summary: 'Create the operational record (status draft). W1: full_name and an email or phone required; same
+        email (case-insensitive) is 409 duplicate. Fields the caller may not write: 403 field_not_permitted.'
+      security:
+      - sessionCookie: []
+      x-action-type: create
+      x-permission: volunteers.create
+      x-scope: organisation
+      x-context: none
+      x-field-sets:
+      - basic
+      - contact
+      - sensitive
+      x-guards: []
+      x-workflow-dependency: none
+      x-audit: volunteer.created
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                full_name:
+                  type: string
+                  minLength: 1
+                  maxLength: 150
+                  x-field-set: basic
+                preferred_name:
+                  type:
+                  - string
+                  - 'null'
+                  minLength: 1
+                  maxLength: 100
+                  x-field-set: basic
+                email:
+                  type:
+                  - string
+                  - 'null'
+                  format: email
+                  maxLength: 254
+                  x-field-set: contact
+                phone:
+                  type:
+                  - string
+                  - 'null'
+                  maxLength: 40
+                  pattern: ^\+?[0-9][0-9 ()\-]{4,38}[0-9]$
+                  x-field-set: contact
+                skills:
+                  type:
+                  - string
+                  - 'null'
+                  minLength: 1
+                  maxLength: 2000
+                  x-field-set: basic
+                languages:
+                  type:
+                  - string
+                  - 'null'
+                  minLength: 1
+                  maxLength: 2000
+                  x-field-set: basic
+                interests:
+                  type:
+                  - string
+                  - 'null'
+                  minLength: 1
+                  maxLength: 2000
+                  x-field-set: basic
+                availability:
+                  type:
+                  - object
+                  - 'null'
+                  additionalProperties: false
+                  required:
+                  - type
+                  properties:
+                    type:
+                      type: string
+                      enum:
+                      - specific_days
+                      - flexible
+                    days:
+                      type: array
+                      items:
+                        type: integer
+                        minimum: 1
+                        maximum: 7
+                      uniqueItems: true
+                  x-field-set: basic
+                address_line1:
+                  type:
+                  - string
+                  - 'null'
+                  minLength: 1
+                  maxLength: 150
+                  x-field-set: sensitive
+                address_line2:
+                  type:
+                  - string
+                  - 'null'
+                  minLength: 1
+                  maxLength: 150
+                  x-field-set: sensitive
+                town:
+                  type:
+                  - string
+                  - 'null'
+                  minLength: 1
+                  maxLength: 100
+                  x-field-set: sensitive
+                postcode:
+                  type:
+                  - string
+                  - 'null'
+                  maxLength: 12
+                  x-field-set: sensitive
+                nationality:
+                  type:
+                  - string
+                  - 'null'
+                  minLength: 1
+                  maxLength: 80
+                  x-field-set: sensitive
+                emergency_contact_name:
+                  type:
+                  - string
+                  - 'null'
+                  minLength: 1
+                  maxLength: 150
+                  x-field-set: sensitive
+                emergency_contact_phone:
+                  type:
+                  - string
+                  - 'null'
+                  maxLength: 40
+                  pattern: ^\+?[0-9][0-9 ()\-]{4,38}[0-9]$
+                  x-field-set: sensitive
+                emergency_contact_relationship:
+                  type:
+                  - string
+                  - 'null'
+                  minLength: 1
+                  maxLength: 60
+                  x-field-set: sensitive
+              required:
+              - full_name
+      responses:
+        '201':
+          description: Success.
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/XRequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+        '409':
+          $ref: '#/components/responses/Error'
+        '422':
+          $ref: '#/components/responses/Error'
+        '429':
+          $ref: '#/components/responses/Error'
+        '500':
+          $ref: '#/components/responses/Error'
+  /volunteers/{id}:
+    get:
+      tags:
+      - volunteers
+      operationId: getVolunteersId
+      summary: Volunteer detail; only readable fields. Schema Volunteer.
+      security:
+      - sessionCookie: []
+      x-action-type: view
+      x-permission: volunteers.view
+      x-scope: organisation
+      x-context: none
+      x-field-sets:
+      - basic
+      - contact
+      - sensitive
+      x-guards: []
+      x-workflow-dependency: none
+      x-audit: none
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          minimum: 1
+      responses:
+        '200':
+          description: Success.
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/XRequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+        '429':
+          $ref: '#/components/responses/Error'
+        '500':
+          $ref: '#/components/responses/Error'
+    patch:
+      tags:
+      - volunteers
+      operationId: patchVolunteersId
+      summary: Edit, under the same field codes and W1 rules.
+      security:
+      - sessionCookie: []
+      x-action-type: edit
+      x-permission: volunteers.edit
+      x-scope: organisation
+      x-context: none
+      x-field-sets:
+      - basic
+      - contact
+      - sensitive
+      x-guards: []
+      x-workflow-dependency: none
+      x-audit: volunteer.updated
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          minimum: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                version:
+                  type: integer
+                  minimum: 1
+                full_name:
+                  type: string
+                  minLength: 1
+                  maxLength: 150
+                  x-field-set: basic
+                preferred_name:
+                  type:
+                  - string
+                  - 'null'
+                  minLength: 1
+                  maxLength: 100
+                  x-field-set: basic
+                email:
+                  type:
+                  - string
+                  - 'null'
+                  format: email
+                  maxLength: 254
+                  x-field-set: contact
+                phone:
+                  type:
+                  - string
+                  - 'null'
+                  maxLength: 40
+                  pattern: ^\+?[0-9][0-9 ()\-]{4,38}[0-9]$
+                  x-field-set: contact
+                skills:
+                  type:
+                  - string
+                  - 'null'
+                  minLength: 1
+                  maxLength: 2000
+                  x-field-set: basic
+                languages:
+                  type:
+                  - string
+                  - 'null'
+                  minLength: 1
+                  maxLength: 2000
+                  x-field-set: basic
+                interests:
+                  type:
+                  - string
+                  - 'null'
+                  minLength: 1
+                  maxLength: 2000
+                  x-field-set: basic
+                availability:
+                  type:
+                  - object
+                  - 'null'
+                  additionalProperties: false
+                  required:
+                  - type
+                  properties:
+                    type:
+                      type: string
+                      enum:
+                      - specific_days
+                      - flexible
+                    days:
+                      type: array
+                      items:
+                        type: integer
+                        minimum: 1
+                        maximum: 7
+                      uniqueItems: true
+                  x-field-set: basic
+                address_line1:
+                  type:
+                  - string
+                  - 'null'
+                  minLength: 1
+                  maxLength: 150
+                  x-field-set: sensitive
+                address_line2:
+                  type:
+                  - string
+                  - 'null'
+                  minLength: 1
+                  maxLength: 150
+                  x-field-set: sensitive
+                town:
+                  type:
+                  - string
+                  - 'null'
+                  minLength: 1
+                  maxLength: 100
+                  x-field-set: sensitive
+                postcode:
+                  type:
+                  - string
+                  - 'null'
+                  maxLength: 12
+                  x-field-set: sensitive
+                nationality:
+                  type:
+                  - string
+                  - 'null'
+                  minLength: 1
+                  maxLength: 80
+                  x-field-set: sensitive
+                emergency_contact_name:
+                  type:
+                  - string
+                  - 'null'
+                  minLength: 1
+                  maxLength: 150
+                  x-field-set: sensitive
+                emergency_contact_phone:
+                  type:
+                  - string
+                  - 'null'
+                  maxLength: 40
+                  pattern: ^\+?[0-9][0-9 ()\-]{4,38}[0-9]$
+                  x-field-set: sensitive
+                emergency_contact_relationship:
+                  type:
+                  - string
+                  - 'null'
+                  minLength: 1
+                  maxLength: 60
+                  x-field-set: sensitive
+              required:
+              - version
+      responses:
+        '200':
+          description: Success.
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/XRequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+        '409':
+          $ref: '#/components/responses/Error'
+        '422':
+          $ref: '#/components/responses/Error'
+        '429':
+          $ref: '#/components/responses/Error'
+        '500':
+          $ref: '#/components/responses/Error'
+  /volunteers/{id}/accept:
+    post:
+      tags:
+      - volunteers
+      operationId: postVolunteersIdAccept
+      summary: Accept into EHF (draft → accepted), a separate event. Not one's own linked record.
+      security:
+      - sessionCookie: []
+      x-action-type: decide
+      x-permission: volunteers.accept
+      x-scope: organisation
+      x-context: none
+      x-field-sets: []
+      x-guards: []
+      x-workflow-dependency: none
+      x-audit: volunteer.accepted
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          minimum: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                version:
+                  type: integer
+                  minimum: 1
+                note:
+                  type: string
+                  minLength: 1
+                  maxLength: 500
+              required:
+              - version
+      responses:
+        '200':
+          description: Success.
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/XRequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+        '409':
+          $ref: '#/components/responses/Error'
+        '422':
+          $ref: '#/components/responses/Error'
+        '429':
+          $ref: '#/components/responses/Error'
+        '500':
+          $ref: '#/components/responses/Error'
+  /volunteers/{id}/status-changes:
+    post:
+      tags:
+      - volunteers
+      operationId: postVolunteersIdStatusChanges
+      summary: 'Other status changes (W1): draft→withdrawn; accepted→active; active↔inactive; accepted/active/inactive→ended.
+        A linked account is never changed.'
+      security:
+      - sessionCookie: []
+      x-action-type: edit
+      x-permission: volunteers.status.change
+      x-scope: organisation
+      x-context: none
+      x-field-sets: []
+      x-guards: []
+      x-workflow-dependency: none
+      x-audit: volunteer.status_changed
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          minimum: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                to_status:
+                  type: string
+                  enum:
+                  - draft
+                  - accepted
+                  - active
+                  - inactive
+                  - ended
+                  - withdrawn
+                reason:
+                  type: string
+                  minLength: 1
+                  maxLength: 500
+                version:
+                  type: integer
+                  minimum: 1
+              required:
+              - to_status
+              - reason
+              - version
+      responses:
+        '200':
+          description: Success.
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/XRequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+        '409':
+          $ref: '#/components/responses/Error'
+        '422':
+          $ref: '#/components/responses/Error'
+        '429':
+          $ref: '#/components/responses/Error'
+        '500':
+          $ref: '#/components/responses/Error'
+  /volunteers/{id}/status-history:
+    get:
+      tags:
+      - volunteers
+      operationId: getVolunteersIdStatusHistory
+      summary: Status history [{from, to, by, at, reason}].
+      security:
+      - sessionCookie: []
+      x-action-type: view
+      x-permission: volunteers.view
+      x-scope: organisation
+      x-context: none
+      x-field-sets: []
+      x-guards: []
+      x-workflow-dependency: none
+      x-audit: none
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          minimum: 1
+      responses:
+        '200':
+          description: Success.
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/XRequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+        '429':
+          $ref: '#/components/responses/Error'
+        '500':
+          $ref: '#/components/responses/Error'
+  /volunteers/{id}/notes:
+    get:
+      tags:
+      - volunteers
+      operationId: getVolunteersIdNotes
+      summary: Confidential notes (R6). Reading is audited.
+      security:
+      - sessionCookie: []
+      x-action-type: view
+      x-permission: confidential.volunteer_notes.view
+      x-scope: organisation
+      x-context: none
+      x-field-sets:
+      - confidential.volunteer_notes
+      x-guards: []
+      x-workflow-dependency: none
+      x-audit: note.viewed
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          minimum: 1
+      responses:
+        '200':
+          description: Success.
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/XRequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+        '429':
+          $ref: '#/components/responses/Error'
+        '500':
+          $ref: '#/components/responses/Error'
+    post:
+      tags:
+      - volunteers
+      operationId: postVolunteersIdNotes
+      summary: Add a note (cannot be edited afterwards).
+      security:
+      - sessionCookie: []
+      x-action-type: create
+      x-permission: confidential.volunteer_notes.create
+      x-scope: organisation
+      x-context: none
+      x-field-sets:
+      - confidential.volunteer_notes
+      x-guards: []
+      x-workflow-dependency: none
+      x-audit: note.created
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          minimum: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                body:
+                  type: string
+                  minLength: 1
+                  maxLength: 5000
+              required:
+              - body
+      responses:
+        '201':
+          description: Success.
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/XRequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+        '409':
+          $ref: '#/components/responses/Error'
+        '422':
+          $ref: '#/components/responses/Error'
+        '429':
+          $ref: '#/components/responses/Error'
+        '500':
+          $ref: '#/components/responses/Error'
 components:
   headers:
     XRequestId:
@@ -2597,6 +3659,233 @@ components:
         data: {}
         meta:
           $ref: '#/components/schemas/Meta'
+    Volunteer:
+      type: object
+      description: A volunteer record. Fields the caller may not read are omitted (API §6.7); x-field-set names
+        each field's set. Never contains notes or account data.
+      required:
+      - id
+      - reference
+      - status
+      - version
+      properties:
+        id:
+          type: integer
+          minimum: 1
+        reference:
+          type: string
+          pattern: ^V-[0-9]{6}$
+        status:
+          type: string
+          enum:
+          - draft
+          - accepted
+          - active
+          - inactive
+          - ended
+          - withdrawn
+        accepted_at:
+          type:
+          - string
+          - 'null'
+          format: date-time
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type:
+          - string
+          - 'null'
+          format: date-time
+        version:
+          type: integer
+          minimum: 1
+        editable_fields:
+          type: array
+          items:
+            type: string
+          description: GET /me/profile only (R12).
+        full_name:
+          type: string
+          minLength: 1
+          maxLength: 150
+          x-field-set: basic
+        preferred_name:
+          type:
+          - string
+          - 'null'
+          minLength: 1
+          maxLength: 100
+          x-field-set: basic
+        email:
+          type:
+          - string
+          - 'null'
+          format: email
+          maxLength: 254
+          x-field-set: contact
+        phone:
+          type:
+          - string
+          - 'null'
+          maxLength: 40
+          pattern: ^\+?[0-9][0-9 ()\-]{4,38}[0-9]$
+          x-field-set: contact
+        skills:
+          type:
+          - string
+          - 'null'
+          minLength: 1
+          maxLength: 2000
+          x-field-set: basic
+        languages:
+          type:
+          - string
+          - 'null'
+          minLength: 1
+          maxLength: 2000
+          x-field-set: basic
+        interests:
+          type:
+          - string
+          - 'null'
+          minLength: 1
+          maxLength: 2000
+          x-field-set: basic
+        availability:
+          type:
+          - object
+          - 'null'
+          additionalProperties: false
+          required:
+          - type
+          properties:
+            type:
+              type: string
+              enum:
+              - specific_days
+              - flexible
+            days:
+              type: array
+              items:
+                type: integer
+                minimum: 1
+                maximum: 7
+              uniqueItems: true
+          x-field-set: basic
+        address_line1:
+          type:
+          - string
+          - 'null'
+          minLength: 1
+          maxLength: 150
+          x-field-set: sensitive
+        address_line2:
+          type:
+          - string
+          - 'null'
+          minLength: 1
+          maxLength: 150
+          x-field-set: sensitive
+        town:
+          type:
+          - string
+          - 'null'
+          minLength: 1
+          maxLength: 100
+          x-field-set: sensitive
+        postcode:
+          type:
+          - string
+          - 'null'
+          maxLength: 12
+          x-field-set: sensitive
+        nationality:
+          type:
+          - string
+          - 'null'
+          minLength: 1
+          maxLength: 80
+          x-field-set: sensitive
+        emergency_contact_name:
+          type:
+          - string
+          - 'null'
+          minLength: 1
+          maxLength: 150
+          x-field-set: sensitive
+        emergency_contact_phone:
+          type:
+          - string
+          - 'null'
+          maxLength: 40
+          pattern: ^\+?[0-9][0-9 ()\-]{4,38}[0-9]$
+          x-field-set: sensitive
+        emergency_contact_relationship:
+          type:
+          - string
+          - 'null'
+          minLength: 1
+          maxLength: 60
+          x-field-set: sensitive
+    ProvisioningCandidate:
+      type: object
+      additionalProperties: false
+      required:
+      - volunteer_id
+      - volunteer_reference
+      - name
+      - invitation_email
+      properties:
+        volunteer_id:
+          type: integer
+          minimum: 1
+        volunteer_reference:
+          type: string
+        name:
+          type: string
+        invitation_email:
+          type:
+          - string
+          - 'null'
+          format: email
+          description: 'AC-6 Option 1 (approved clarification of API V1.3.1 §7.2; no endpoint, permission, guard
+            or audit change): nullable. Populated only from the volunteer''s recorded contact email, shown in full
+            to holders of accounts.provision (R18); null when none is recorded. When null, POST /volunteers/{id}/portal-account
+            must include invitation_email, or it is refused with 422 validation_failed.'
+    PortalAccountResult:
+      type: object
+      additionalProperties: false
+      required:
+      - user
+      - invitation
+      properties:
+        user:
+          type: object
+          additionalProperties: false
+          required:
+          - id
+          - email
+          - status
+          properties:
+            id:
+              type: integer
+              minimum: 1
+            email:
+              type: string
+              format: email
+            status:
+              type: string
+              const: invited
+        invitation:
+          type:
+          - object
+          - 'null'
+          properties:
+            expires_at:
+              type: string
+              format: date-time
+          description: null when no invitation was sent (send_invitation false). Sending needs A5/A11.
   securitySchemes:
     sessionCookie:
       type: apiKey

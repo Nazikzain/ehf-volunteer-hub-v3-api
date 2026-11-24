@@ -11,8 +11,8 @@ declare(strict_types=1);
  *   POST /users/{id}/invitation, POST /users/{id}/password-reset, POST /auth/password/forgot
  *     — sending email needs A11 (and token lifetimes, A5);
  *   POST /system-owners — owner eligibility needs R7.
- * Not in Phase 4: GET /portal-provisioning/candidates and POST /volunteers/{id}/portal-account
- *   (Phase 5; AC-6), /me/*, settings, and all business endpoints.
+ * Phase 5 adds volunteer records (§7.4), portal provisioning (§7.2) and /me/profile (§7.3).
+ * Not yet: other /me/* endpoints, settings and the business endpoints of Phases 6–11.
  */
 
 use Ehf\Api\Http\Controllers\AccessController;
@@ -20,8 +20,11 @@ use Ehf\Api\Http\Controllers\AuditController;
 use Ehf\Api\Http\Controllers\AuthController;
 use Ehf\Api\Http\Controllers\GovernanceController;
 use Ehf\Api\Http\Controllers\HealthController;
+use Ehf\Api\Http\Controllers\ProfileController;
+use Ehf\Api\Http\Controllers\ProvisioningController;
 use Ehf\Api\Http\Controllers\SystemController;
 use Ehf\Api\Http\Controllers\UserController;
+use Ehf\Api\Http\Controllers\VolunteerController;
 use Ehf\Api\Http\RouteAccess;
 use Slim\App;
 use Slim\Interfaces\RouteInterface;
@@ -63,6 +66,25 @@ return static function (App $app): void {
         $access($v3->post('/users/{id:[0-9]+}/suspend', [UserController::class, 'suspend']), 'accounts.suspend', 'account.suspended');
         $access($v3->post('/users/{id:[0-9]+}/reactivate', [UserController::class, 'reactivate']), 'accounts.reactivate', 'account.reactivated');
         $access($v3->post('/users/{id:[0-9]+}/deactivate', [UserController::class, 'deactivate']), 'accounts.deactivate', 'account.deactivated');
+
+        // Portal provisioning (API §7.2; W1, AC-6, R18)
+        $access($v3->get('/portal-provisioning/candidates', [ProvisioningController::class, 'candidates']), 'accounts.provision');
+        $access($v3->post('/volunteers/{id:[0-9]+}/portal-account', [ProvisioningController::class, 'provision']), 'accounts.provision', 'account.provisioned', true);
+
+        // Own profile (API §7.3; R12)
+        $access($v3->get('/me/profile', [ProfileController::class, 'show']), 'self.profile.view');
+        $access($v3->patch('/me/profile', [ProfileController::class, 'update']), 'self.profile.edit', 'volunteer.self_updated');
+
+        // Volunteer records and confidential notes (API §7.4; W1, R6)
+        $access($v3->get('/volunteers', [VolunteerController::class, 'list']), 'volunteers.browse');
+        $access($v3->post('/volunteers', [VolunteerController::class, 'create']), 'volunteers.create', 'volunteer.created', true);
+        $access($v3->get('/volunteers/{id:[0-9]+}', [VolunteerController::class, 'show']), 'volunteers.view');
+        $access($v3->patch('/volunteers/{id:[0-9]+}', [VolunteerController::class, 'update']), 'volunteers.edit', 'volunteer.updated');
+        $access($v3->post('/volunteers/{id:[0-9]+}/accept', [VolunteerController::class, 'accept']), 'volunteers.accept', 'volunteer.accepted');
+        $access($v3->post('/volunteers/{id:[0-9]+}/status-changes', [VolunteerController::class, 'changeStatus']), 'volunteers.status.change', 'volunteer.status_changed');
+        $access($v3->get('/volunteers/{id:[0-9]+}/status-history', [VolunteerController::class, 'history']), 'volunteers.view');
+        $access($v3->get('/volunteers/{id:[0-9]+}/notes', [VolunteerController::class, 'notes']), 'confidential.volunteer_notes.view', 'note.viewed');
+        $access($v3->post('/volunteers/{id:[0-9]+}/notes', [VolunteerController::class, 'addNote']), 'confidential.volunteer_notes.create', 'note.created', true);
 
         // Roles, grants, catalogues and sessions (API §7.2)
         $access($v3->get('/users/{id:[0-9]+}/roles', [AccessController::class, 'roles']), 'roles.view');

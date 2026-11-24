@@ -47,6 +47,24 @@ final class RequestInput extends InputValidator
         return $input;
     }
 
+    /**
+     * Fields present in the input, including those sent as null.
+     *
+     * @return list<string>
+     */
+    public function sentFields(): array
+    {
+        return array_map('strval', array_keys($this->data));
+    }
+
+    /**
+     * The value as sent (null if absent); for validators that need the raw shape.
+     */
+    public function raw(string $field): mixed
+    {
+        return $this->data[$field] ?? null;
+    }
+
     public function has(string $field): bool
     {
         return \array_key_exists($field, $this->data) && $this->data[$field] !== null;
